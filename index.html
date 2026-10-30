@@ -158,13 +158,78 @@
         .notes-section h4 { color: var(--accent); margin-bottom: 5px; }
         .footer-contact { text-align: center; padding: 20px; margin-top: 20px; font-size: 1.2rem; color: var(--lavender); font-weight: 700; background: var(--bg-card); border-top: 1px solid rgba(200,179,232,0.2); }
 
+        .category-nav {
+            display: flex; gap: 14px; overflow-x: auto; padding: 14px 2px 20px;
+            margin: 0 0 10px; scrollbar-width: thin; scroll-snap-type: x proximity;
+        }
+        .category-shortcut {
+            flex: 0 0 94px; min-height: 108px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 8px; padding: 10px 6px;
+            background: var(--bg-card); border: 1px solid rgba(200,179,232,0.24);
+            border-radius: 18px; color: var(--text-muted); text-decoration: none;
+            text-align: center; scroll-snap-align: start; transition: 0.2s;
+        }
+        .category-shortcut:hover, .category-shortcut:focus-visible {
+            color: var(--text-main); border-color: var(--primary); transform: translateY(-2px);
+        }
+        .category-shortcut-icon {
+            width: 54px; height: 54px; display: grid; place-items: center;
+            border-radius: 50%; color: var(--accent); background: rgba(212,255,63,0.1);
+            border: 1px solid rgba(212,255,63,0.35); font-size: 1.2rem;
+        }
+        .category-shortcut-label { font-size: 0.78rem; font-weight: 700; line-height: 1.35; }
+        .customer-category { scroll-margin-top: 150px; }
+        .customer-category .section-title { margin-top: 20px; }
+        .empty-category { color: var(--text-muted); padding: 12px 4px; }
+        .customer-offers { margin-bottom: 22px; }
+        .customer-offers[hidden] { display: none; }
+        .offers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+        .offer-card {
+            display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 14px; align-items: center;
+            min-width: 0; padding: 14px; background: linear-gradient(135deg, rgba(227,66,52,0.2), var(--bg-card) 65%);
+            border: 1px solid rgba(227,66,52,0.5); border-radius: 16px;
+        }
+        .offer-image { width: 90px; height: 90px; border-radius: 12px; object-fit: cover; background: var(--bg-control); }
+        .offer-image[hidden] { display: none; }
+        .offer-card:not(.has-image) { grid-template-columns: minmax(0, 1fr); }
+        .offer-title { color: var(--accent); font-size: 1.05rem; font-weight: 900; }
+        .offer-description { color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; overflow-wrap: anywhere; }
+        .offer-price { display: inline-block; color: white; font-weight: 700; margin-top: 7px; }
+        .offer-admin-list { display: grid; gap: 12px; }
+        .offer-admin-card { background: var(--bg-control); border-radius: 12px; padding: 14px; min-width: 0; }
+        .offer-admin-card h4 { color: var(--accent); overflow-wrap: anywhere; }
+        .offer-admin-card p { color: var(--text-muted); margin: 4px 0 10px; overflow-wrap: anywhere; }
+        .offer-admin-actions { display: flex; gap: 8px; }
+
         /* لوحة تحكم الأدمن */
         #admin-wrapper { display: none; }
+        #admin-wrapper.is-locked .admin-sidebar,
+        #admin-wrapper.is-locked .admin-page-body,
+        #admin-wrapper.is-locked .sidebar-toggle,
+        #admin-wrapper.is-locked .sidebar-overlay { visibility: hidden; }
+        .admin-auth-overlay {
+            position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center;
+            padding: 18px; background: rgba(23,19,29,0.96);
+        }
+        .admin-auth-overlay[hidden] { display: none; }
+        .admin-auth-card {
+            width: min(100%, 420px); padding: 24px; background: var(--bg-card);
+            border: 1px solid var(--primary); border-radius: 16px;
+        }
+        .admin-auth-card h2 { color: var(--accent); margin-bottom: 8px; }
+        .admin-auth-card p { color: var(--text-muted); margin-bottom: 16px; }
+        .admin-auth-message { min-height: 1.5em; color: #ff9a91; margin-top: 12px !important; }
+        .sync-status {
+            position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 4500;
+            width: min(560px, calc(100% - 24px)); padding: 12px 16px; border-radius: 10px;
+            background: #522a2a; color: white; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+        }
+        .sync-status[hidden] { display: none; }
         .admin-page-body { padding: 20px; margin-right: 260px; min-height: 100vh; }
         .admin-sidebar {
             position: fixed; inset: 0 0 0 auto; width: 240px; padding: 24px 16px;
             background: var(--bg-card); border-left: 1px solid rgba(200,179,232,0.2); z-index: 1100;
-            display: flex; flex-direction: column; gap: 24px;
+            display: flex; flex-direction: column; gap: 24px; overflow-y: auto;
         }
         .sidebar-brand { padding: 6px 12px 18px; border-bottom: 1px solid rgba(200,179,232,0.2); }
         .sidebar-brand h2 { color: var(--primary); font-size: 1.35rem; font-weight: 900; }
@@ -219,6 +284,24 @@
         .cancel-btn:hover { background: #3B2E49; }
         .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; transition: 0.3s; }
         .btn:hover { background: var(--primary-dark); }
+        .management-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+        .management-card { min-width: 0; background: var(--bg-card); border: 1px solid rgba(200,179,232,0.22); border-radius: 14px; padding: 18px; }
+        .management-card h3 { color: var(--accent); margin-bottom: 14px; }
+        .management-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-bottom: 14px; }
+        .management-form .form-group { margin: 0; min-width: 0; }
+        .management-form .form-control { min-width: 0; }
+        .management-form .btn { width: auto; min-height: 42px; white-space: nowrap; padding: 9px 14px; }
+        .management-form.category-form { grid-template-columns: minmax(0, 1fr) minmax(110px, 0.7fr); }
+        .management-form.category-form .category-kind-field { grid-column: 1 / -1; }
+        .management-form.category-form .btn { grid-column: 1 / -1; width: 100%; }
+        .management-list { display: grid; gap: 9px; }
+        .management-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            min-width: 0; padding: 10px 12px; border-radius: 10px; background: var(--bg-control);
+        }
+        .management-row-label { min-width: 0; overflow-wrap: anywhere; }
+        .management-row-label i { color: var(--accent); margin-left: 7px; }
+        .management-empty { color: var(--text-muted); text-align: center; padding: 12px 4px; }
 
         @media (max-width: 650px) {
             .admin-page-body { padding: 68px 12px 12px; margin-right: 0; }
@@ -238,6 +321,21 @@
             .stat-card h3 { font-size: 1.5rem; }
             .sales-chart-card { padding: 14px; }
             .chart-canvas-wrap { height: 250px; }
+            .category-nav { gap: 10px; margin-inline: -2px; padding-bottom: 14px; }
+            .category-shortcut { flex-basis: 84px; min-height: 98px; }
+            .category-shortcut-icon { width: 48px; height: 48px; }
+            .customer-category { scroll-margin-top: 105px; }
+            .management-card { padding: 14px; }
+            .management-form { grid-template-columns: minmax(0, 1fr) auto; }
+            .offer-card { grid-template-columns: 72px minmax(0, 1fr); gap: 10px; padding: 11px; }
+            .offer-image { width: 72px; height: 72px; }
+            .offer-admin-actions { flex-wrap: wrap; }
+        }
+        @media (max-width: 380px) {
+            .management-form { grid-template-columns: 1fr; }
+            .management-form .btn, .management-form.category-form .btn { width: 100%; }
+            .management-form.category-form { grid-template-columns: 1fr; }
+            .management-form.category-form .category-kind-field { grid-column: auto; }
         }
     </style>
 </head>
@@ -249,8 +347,7 @@
             <div class="branch-card">
                 <h2 style="color: var(--primary); margin-bottom: 10px;">شركة شاورمات</h2>
                 <p style="color: var(--text-muted); margin-bottom: 20px;">يرجى اختيار الفرع الأقرب إليك للبدء:</p>
-                <button class="branch-btn" onclick="selectBranch('حلي')"><i class="fas fa-store"></i> فرع حلي</button>
-                <button class="branch-btn" onclick="selectBranch('القنفذة')" style="background: var(--bg-control); border: 1px solid var(--lavender);"><i class="fas fa-store"></i> فرع القنفذة</button>
+                <div id="branch-options"></div>
             </div>
         </div>
 
@@ -263,11 +360,12 @@
         </header>
 
         <div class="container">
-            <div class="section-title"><i class="fas fa-utensils"></i> قسم المأكولات والوجبات</div>
-            <div class="menu-grid" id="food-container"></div>
-
-            <div class="section-title"><i class="fas fa-cocktail"></i> قسم المشروبات</div>
-            <div class="menu-grid" id="drinks-container"></div>
+            <section id="customer-offers" class="customer-offers" aria-labelledby="customer-offers-title" hidden>
+                <div class="section-title" id="customer-offers-title"><i class="fas fa-tags"></i> العروض</div>
+                <div id="customer-offers-list" class="offers-grid"></div>
+            </section>
+            <nav id="customer-category-nav" class="category-nav" aria-label="أقسام المنيو"></nav>
+            <div id="customer-menu-sections"></div>
 
             <div class="notes-section">
                 <h4>ملاحظة هامة:</h4>
@@ -327,7 +425,25 @@
     </div>
 
     <!-- 2. لوحة تحكم الأدمن -->
-    <div id="admin-wrapper">
+    <div id="admin-wrapper" class="is-locked">
+        <div id="admin-auth-overlay" class="admin-auth-overlay" hidden>
+            <section class="admin-auth-card" aria-labelledby="admin-auth-title">
+                <h2 id="admin-auth-title"><i class="fas fa-lock"></i> دخول الإدارة</h2>
+                <p>سجّل الدخول بحساب الإدارة لمزامنة التعديلات بأمان.</p>
+                <form id="admin-login-form">
+                    <div class="form-group">
+                        <label for="admin-email">البريد الإلكتروني</label>
+                        <input id="admin-email" class="form-control" type="email" autocomplete="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin-password">كلمة المرور</label>
+                        <input id="admin-password" class="form-control" type="password" autocomplete="current-password" required>
+                    </div>
+                    <button class="btn" type="submit">تسجيل الدخول</button>
+                </form>
+                <p id="admin-auth-message" class="admin-auth-message" role="alert"></p>
+            </section>
+        </div>
         <button class="sidebar-toggle" type="button" aria-label="فتح القائمة الجانبية"
             aria-controls="admin-sidebar" aria-expanded="false" onclick="toggleSidebar()">
             <i class="fas fa-bars"></i>
@@ -354,10 +470,19 @@
                 <a class="sidebar-link" href="#manage-items-section" onclick="setActiveSidebarLink(this, event)">
                     <i class="fas fa-pen-to-square"></i><span>إدارة الأصناف</span>
                 </a>
+                <a class="sidebar-link" href="#manage-categories-branches-section" onclick="setActiveSidebarLink(this, event)">
+                    <i class="fas fa-layer-group"></i><span>إدارة الأقسام والفروع</span>
+                </a>
+                <a class="sidebar-link" href="#manage-offers-section" onclick="setActiveSidebarLink(this, event)">
+                    <i class="fas fa-tags"></i><span>إدارة العروض</span>
+                </a>
             </nav>
             <a class="sidebar-back-link" onclick="exitAdmin()">
                 <i class="fas fa-arrow-right"></i> العودة لمنيو العملاء
             </a>
+            <button class="item-action-btn item-delete-btn" type="button" onclick="runAdminAction(signOutAdmin)">
+                <i class="fas fa-right-from-bracket"></i> تسجيل الخروج
+            </button>
         </aside>
         
         <div class="admin-page-body">
@@ -427,10 +552,7 @@
                     </div>
                     <div class="form-group">
                         <label>اختر القسم</label>
-                        <select id="new-item-type" class="form-control" onchange="updateItemOptionFields()">
-                            <option value="food">قسم المأكولات والوجبات</option>
-                            <option value="drink">قسم المشروبات</option>
-                        </select>
+                        <select id="new-item-type" class="form-control" onchange="updateItemOptionFields()"></select>
                     </div>
                     <div class="form-group" id="new-item-option-mode-group">
                         <label for="new-item-option-mode">خيارات الجبنة</label>
@@ -441,11 +563,7 @@
                     </div>
                     <div class="form-group">
                         <label for="new-item-branch">اختر الفرع الذي سيظهر فيه الصنف</label>
-                        <select id="new-item-branch" class="form-control">
-                            <option value="حلي">فرع حلي</option>
-                            <option value="القنفذة">فرع القنفذة</option>
-                            <option value="all">مشترك بين الفرعين</option>
-                        </select>
+                        <select id="new-item-branch" class="form-control"></select>
                     </div>
                     <div class="form-group">
                         <label id="new-item-price-label" for="new-item-price">السعر (ريال)</label>
@@ -464,7 +582,7 @@
                         <input type="file" id="new-item-image" class="form-control" accept="image/*">
                         <p class="image-hint">اختر صورة بحجم لا يتجاوز 8 ميجابايت.</p>
                     </div>
-                    <button class="btn" onclick="addNewItem()"><i class="fas fa-plus"></i> حفظ وإضافة الصنف للمنيو</button>
+                    <button class="btn" onclick="runAdminAction(addNewItem)"><i class="fas fa-plus"></i> حفظ وإضافة الصنف للمنيو</button>
                 </div>
                 </section>
 
@@ -485,9 +603,95 @@
                         </table>
                     </div>
                 </section>
+
+                <section id="manage-categories-branches-section" class="admin-view">
+                    <div class="section-title">إدارة الأقسام والفروع</div>
+                    <div class="management-grid">
+                        <section class="management-card" aria-labelledby="manage-categories-title">
+                            <h3 id="manage-categories-title"><i class="fas fa-layer-group"></i> الأقسام</h3>
+                            <form id="category-form" class="management-form category-form">
+                                <div class="form-group">
+                                    <label for="new-category-name">اسم القسم</label>
+                                    <input id="new-category-name" class="form-control" type="text" maxlength="40" placeholder="مثال: الحلويات" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-category-icon">الأيقونة</label>
+                                    <select id="new-category-icon" class="form-control">
+                                        <option value="fa-utensils">وجبات</option>
+                                        <option value="fa-mug-hot">مشروبات</option>
+                                        <option value="fa-ice-cream">حلويات</option>
+                                        <option value="fa-burger">برجر</option>
+                                        <option value="fa-cookie-bite">مخبوزات</option>
+                                        <option value="fa-bowl-food">أطباق</option>
+                                        <option value="fa-star">أخرى</option>
+                                    </select>
+                                </div>
+                                <div class="form-group category-kind-field">
+                                    <label for="new-category-kind">نوع الأصناف</label>
+                                    <select id="new-category-kind" class="form-control">
+                                        <option value="food">مأكولات (تدعم خيارات الجبنة)</option>
+                                        <option value="drink">مشروبات</option>
+                                    </select>
+                                </div>
+                                <button class="btn" type="submit"><i class="fas fa-plus"></i> إضافة قسم</button>
+                            </form>
+                            <div id="categories-management-list" class="management-list"></div>
+                        </section>
+
+                        <section class="management-card" aria-labelledby="manage-branches-title">
+                            <h3 id="manage-branches-title"><i class="fas fa-store"></i> الفروع</h3>
+                            <form id="branch-form" class="management-form">
+                                <div class="form-group">
+                                    <label for="new-branch-name">اسم الفرع</label>
+                                    <input id="new-branch-name" class="form-control" type="text" maxlength="50" placeholder="اكتب اسم الفرع" required>
+                                </div>
+                                <button class="btn" type="submit"><i class="fas fa-plus"></i> إضافة فرع</button>
+                            </form>
+                            <div id="branches-management-list" class="management-list"></div>
+                        </section>
+                    </div>
+                </section>
+
+                <section id="manage-offers-section" class="admin-view">
+                    <div class="section-title">إدارة العروض</div>
+                    <div class="management-grid">
+                        <section class="management-card" aria-labelledby="offer-form-title">
+                            <h3 id="offer-form-title"><i class="fas fa-tag"></i> <span id="offer-form-heading">إضافة عرض جديد</span></h3>
+                            <form id="offer-form">
+                                <input id="offer-edit-id" type="hidden">
+                                <div class="form-group">
+                                    <label for="offer-title-input">عنوان العرض</label>
+                                    <input id="offer-title-input" class="form-control" type="text" maxlength="70" placeholder="مثال: وجبة الشاورما بسعر مميز" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="offer-description-input">تفاصيل العرض</label>
+                                    <textarea id="offer-description-input" class="form-control" rows="3" maxlength="240" placeholder="اكتب تفاصيل العرض وشروطه (اختياري)"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="offer-price-input">السعر بعد العرض (اختياري)</label>
+                                    <input id="offer-price-input" class="form-control" type="number" min="0" step="0.01" placeholder="مثال: 19">
+                                </div>
+                                <div class="form-group">
+                                    <label for="offer-image-input">صورة العرض (اختياري)</label>
+                                    <input id="offer-image-input" class="form-control" type="file" accept="image/*">
+                                </div>
+                                <div class="edit-dialog-actions">
+                                    <button id="offer-submit-button" class="btn" type="submit"><i class="fas fa-plus"></i> إضافة العرض</button>
+                                    <button id="offer-cancel-edit" class="btn cancel-btn" type="button" onclick="cancelOfferEdit()" hidden>إلغاء التعديل</button>
+                                </div>
+                            </form>
+                        </section>
+                        <section class="management-card" aria-labelledby="offers-list-title">
+                            <h3 id="offers-list-title"><i class="fas fa-list"></i> العروض الحالية</h3>
+                            <div id="offers-management-list" class="offer-admin-list"></div>
+                        </section>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
+
+    <div id="sync-status" class="sync-status" role="alert" hidden></div>
 
     <!-- نافذة التعديل للأدمن -->
     <dialog id="edit-item-dialog" class="edit-dialog" aria-labelledby="edit-item-title">
@@ -503,18 +707,11 @@
             </div>
             <div class="form-group">
                 <label for="edit-item-type">القسم</label>
-                <select id="edit-item-type" class="form-control" onchange="updateEditOptionFields()">
-                    <option value="food">المأكولات والوجبات</option>
-                    <option value="drink">المشروبات</option>
-                </select>
+                <select id="edit-item-type" class="form-control" onchange="updateEditOptionFields()"></select>
             </div>
             <div class="form-group">
                 <label for="edit-item-branch">الفرع</label>
-                <select id="edit-item-branch" class="form-control">
-                    <option value="all">مشترك بين الفرعين</option>
-                    <option value="حلي">فرع حلي</option>
-                    <option value="القنفذة">فرع القنفذة</option>
-                </select>
+                <select id="edit-item-branch" class="form-control"></select>
             </div>
             <div class="form-group" id="edit-item-option-mode-group">
                 <label for="edit-item-option-mode">خيارات الجبنة</label>
@@ -553,6 +750,15 @@
         const SUPABASE_URL = 'https://puiiwbqthhvzfsdqaywc.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_s_rWNZvNN7oo8Yf-KDNBdg_eeKYja8J';
         const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+        const sharedTables = {
+            categories: 'menu_categories',
+            branches: 'menu_branches',
+            menu: 'menu_items',
+            offers: 'menu_offers',
+            settings: 'menu_settings'
+        };
+        let currentSession = null;
+        let sharedDataLoadPromise = null;
 
         const defaultMenu = [
             { id: 1, name: "باشكا إيطالي", type: "food", img: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=500&q=80", options: [{ label: "بدون جبن", price: 18, cal: "750" }, { label: "بالجبن", price: 20, cal: "900" }] },
@@ -569,10 +775,62 @@
             { id: 12, name: "سبرايت", type: "drink", img: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=500&q=80", options: [{ label: "عادي", price: 3, cal: "140" }] }
         ];
 
-        let currentBranch = "حلي";
+        const defaultCategories = [
+            { id: 'food', name: 'المأكولات والوجبات', icon: 'fa-utensils', kind: 'food' },
+            { id: 'drink', name: 'المشروبات', icon: 'fa-mug-hot', kind: 'drink' }
+        ];
+        const defaultBranches = ['حلي', 'القنفذة'];
+        const categoryIcons = ['fa-utensils', 'fa-mug-hot', 'fa-ice-cream', 'fa-burger', 'fa-cookie-bite', 'fa-bowl-food', 'fa-star'];
+        let currentBranch = defaultBranches[0];
         let menuData = JSON.parse(localStorage.getItem('shawarmat_menu')) || defaultMenu;
         let cart = [];
         let cartFeedbackTimer = null;
+
+        function getCategories() {
+            const savedCategories = localStorage.getItem('shawarmat_categories');
+            return savedCategories ? JSON.parse(savedCategories) : defaultCategories.map(category => ({ ...category }));
+        }
+
+        function getBranches() {
+            const savedBranches = localStorage.getItem('shawarmat_branches');
+            return savedBranches ? JSON.parse(savedBranches) : [...defaultBranches];
+        }
+
+        function getCategoryForItem(item, categories = getCategories()) {
+            return categories.find(category => category.id === item.categoryId)
+                || categories.find(category => category.id === item.type)
+                || categories[0];
+        }
+
+        function renderBranchOptions() {
+            const branches = getBranches();
+            const branchOptions = document.getElementById('branch-options');
+            branchOptions.innerHTML = branches.map((branch, index) => `
+                <button class="branch-btn" data-branch="${escapeHTML(branch)}"
+                    style="${index ? 'background: var(--bg-control); border: 1px solid var(--lavender);' : ''}">
+                    <i class="fas fa-store"></i> فرع ${escapeHTML(branch)}
+                </button>
+            `).join('');
+            ['new-item-branch', 'edit-item-branch'].forEach(id => {
+                const select = document.getElementById(id);
+                const selectedValue = select.value;
+                select.innerHTML = `<option value="all">مشترك بين جميع الفروع</option>` + branches
+                    .map(branch => `<option value="${escapeHTML(branch)}">فرع ${escapeHTML(branch)}</option>`).join('');
+                if ([...select.options].some(option => option.value === selectedValue)) select.value = selectedValue;
+            });
+        }
+
+        function renderCategoryOptions() {
+            const categories = getCategories();
+            ['new-item-type', 'edit-item-type'].forEach(id => {
+                const select = document.getElementById(id);
+                const selectedValue = select.value;
+                select.innerHTML = categories.map(category =>
+                    `<option value="${escapeHTML(category.id)}">${escapeHTML(category.name)}</option>`
+                ).join('');
+                if (categories.some(category => category.id === selectedValue)) select.value = selectedValue;
+            });
+        }
 
         function selectBranch(branch) {
             currentBranch = branch;
@@ -583,15 +841,20 @@
 
         function renderMenu() {
             menuData = JSON.parse(localStorage.getItem('shawarmat_menu')) || defaultMenu;
-            const foodContainer = document.getElementById('food-container');
-            const drinksContainer = document.getElementById('drinks-container');
-            
-            foodContainer.innerHTML = '';
-            drinksContainer.innerHTML = '';
-
-            menuData
-                .filter(item => !item.branch || item.branch === currentBranch || item.branch === 'all')
-                .forEach(item => {
+            renderCustomerOffers();
+            const categories = getCategories();
+            const visibleItems = menuData.filter(item => !item.branch || item.branch === currentBranch || item.branch === 'all');
+            const categoryNav = document.getElementById('customer-category-nav');
+            const menuSections = document.getElementById('customer-menu-sections');
+            categoryNav.innerHTML = categories.map(category => `
+                <a class="category-shortcut" href="#customer-category-${encodeURIComponent(category.id)}">
+                    <span class="category-shortcut-icon"><i class="fas ${escapeHTML(category.icon)}"></i></span>
+                    <span class="category-shortcut-label">${escapeHTML(category.name)}</span>
+                </a>
+            `).join('');
+            menuSections.innerHTML = categories.map(category => {
+                const categoryItems = visibleItems.filter(item => getCategoryForItem(item, categories)?.id === category.id);
+                const cards = categoryItems.map(item => {
                 let optionsHTML = '';
                 if (item.options.length > 1) {
                     item.options.forEach((opt, index) => {
@@ -608,14 +871,14 @@
                 }
                 const displayedOptions = item.options.length > 1 ? optionsHTML : `<div class="price">${item.options[0].price} ريال</div>`;
 
-                const cardHTML = `
+                return `
                     <div class="menu-card">
                         <div class="card-img-container">
-                            <span class="calories-badge"><i class="fas fa-fire"></i> ${item.options[0].cal} كالوري</span>
-                            <img src="${item.img}" alt="${item.name}">
+                            <span class="calories-badge"><i class="fas fa-fire"></i> ${escapeHTML(item.options[0].cal)} كالوري</span>
+                            <img src="${escapeHTML(item.img)}" alt="${escapeHTML(item.name)}">
                         </div>
                         <div class="card-content">
-                            <div class="card-title">${item.name}</div>
+                            <div class="card-title">${escapeHTML(item.name)}</div>
                             <div class="options-group">${displayedOptions}</div>
                             <div class="quantity-control">
                                 <span style="font-size: 0.85rem; color: var(--text-muted);">الكمية:</span>
@@ -631,13 +894,243 @@
                         </div>
                     </div>
                 `;
+                }).join('');
+                return `
+                    <section class="customer-category" id="customer-category-${encodeURIComponent(category.id)}">
+                        <div class="section-title"><i class="fas ${escapeHTML(category.icon)}"></i> ${escapeHTML(category.name)}</div>
+                        ${cards ? `<div class="menu-grid">${cards}</div>` : '<p class="empty-category">لا توجد أصناف متاحة في هذا القسم حالياً.</p>'}
+                    </section>
+                `;
+            }).join('');
+        }
 
-                if (item.type === 'food') {
-                    foodContainer.innerHTML += cardHTML;
-                } else {
-                    drinksContainer.innerHTML += cardHTML;
-                }
+        function getOffers() {
+            const savedOffers = localStorage.getItem('shawarmat_offers');
+            return savedOffers ? JSON.parse(savedOffers) : [];
+        }
+
+        function requireAdminAccess() {
+            if (!currentSession || currentSession.user?.app_metadata?.role !== 'admin') {
+                throw new Error('يلزم تسجيل الدخول بحساب الإدارة لحفظ التغييرات.');
+            }
+        }
+
+        function showSyncStatus(message) {
+            const status = document.getElementById('sync-status');
+            status.textContent = message;
+            status.hidden = false;
+        }
+
+        function clearSyncStatus() {
+            const status = document.getElementById('sync-status');
+            status.textContent = '';
+            status.hidden = true;
+        }
+
+        async function runAdminAction(action) {
+            clearSyncStatus();
+            try {
+                await action();
+            } catch (error) {
+                console.error('تعذر تنفيذ إجراء الإدارة:', error);
+                showSyncStatus(`تعذر حفظ التغييرات ومزامنتها: ${error.message || error}`);
+            }
+        }
+
+        function getSharedRows(table, records) {
+            if (table === sharedTables.categories) {
+                return records.map((category, sort_order) => ({
+                    id: category.id, name: category.name, icon: category.icon, kind: category.kind, sort_order
+                }));
+            }
+            if (table === sharedTables.branches) {
+                return records.map((name, sort_order) => ({ id: name, name, sort_order }));
+            }
+            if (table === sharedTables.menu) {
+                return records.map((item, sort_order) => ({ id: String(item.id), data: item, sort_order }));
+            }
+            if (table === sharedTables.offers) {
+                return records.map((offer, sort_order) => ({
+                    id: String(offer.id), title: offer.title, description: offer.description || '',
+                    price: offer.price ?? null, image: offer.image || '', sort_order
+                }));
+            }
+            throw new Error(`جدول مزامنة غير معروف: ${table}`);
+        }
+
+        async function replaceSharedRows(table, rows) {
+            requireAdminAccess();
+            if (!supabaseClient) throw new Error('تعذر الاتصال بخدمة Supabase.');
+            const { data: existingRows, error: readError } = await supabaseClient.from(table).select('id');
+            if (readError) throw new Error(readError.message);
+            if (rows.length) {
+                const { error: writeError } = await supabaseClient.from(table).upsert(rows, { onConflict: 'id' });
+                if (writeError) throw new Error(writeError.message);
+            }
+            const wantedIds = new Set(rows.map(row => String(row.id)));
+            const staleIds = existingRows.map(row => row.id).filter(id => !wantedIds.has(String(id)));
+            if (staleIds.length) {
+                const { error: deleteError } = await supabaseClient.from(table).delete().in('id', staleIds);
+                if (deleteError) throw new Error(deleteError.message);
+            }
+        }
+
+        async function upsertSharedRows(table, rows) {
+            requireAdminAccess();
+            if (!supabaseClient) throw new Error('تعذر الاتصال بخدمة Supabase.');
+            if (!rows.length) return;
+            const { error } = await supabaseClient.from(table).upsert(rows, { onConflict: 'id' });
+            if (error) throw new Error(error.message);
+        }
+
+        async function deleteSharedRow(table, id) {
+            requireAdminAccess();
+            if (!supabaseClient) throw new Error('تعذر الاتصال بخدمة Supabase.');
+            const { error } = await supabaseClient.from(table).delete().eq('id', String(id));
+            if (error) throw new Error(error.message);
+        }
+
+        async function fetchSharedRows(table) {
+            const { data, error } = await supabaseClient.from(table).select('*').order('sort_order', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data || [];
+        }
+
+        async function initializeSharedData() {
+            requireAdminAccess();
+            const { data: settings, error } = await supabaseClient
+                .from(sharedTables.settings).select('initialized').eq('id', 'menu').maybeSingle();
+            if (error) throw new Error(error.message);
+            if (settings?.initialized) return;
+
+            await replaceSharedRows(sharedTables.categories, getSharedRows(sharedTables.categories, getCategories()));
+            await replaceSharedRows(sharedTables.branches, getSharedRows(sharedTables.branches, getBranches()));
+            await replaceSharedRows(sharedTables.menu, getSharedRows(sharedTables.menu, getMenuData()));
+            await replaceSharedRows(sharedTables.offers, getSharedRows(sharedTables.offers, getOffers()));
+            const { error: settingsError } = await supabaseClient.from(sharedTables.settings)
+                .upsert({ id: 'menu', initialized: true }, { onConflict: 'id' });
+            if (settingsError) throw new Error(settingsError.message);
+        }
+
+        async function loadSharedData(initialize = false) {
+            if (!supabaseClient) throw new Error('مكتبة Supabase غير متاحة. تحقق من اتصال الإنترنت.');
+            if (initialize) await initializeSharedData();
+            const { data: settings, error: settingsError } = await supabaseClient
+                .from(sharedTables.settings).select('initialized').eq('id', 'menu').maybeSingle();
+            if (settingsError) throw new Error(settingsError.message);
+            const [categories, branches, menu, offers] = await Promise.all([
+                fetchSharedRows(sharedTables.categories),
+                fetchSharedRows(sharedTables.branches),
+                fetchSharedRows(sharedTables.menu),
+                fetchSharedRows(sharedTables.offers)
+            ]);
+            if (settings?.initialized) {
+                localStorage.setItem('shawarmat_categories', JSON.stringify(categories.map(({ id, name, icon, kind }) => ({ id, name, icon, kind }))));
+                localStorage.setItem('shawarmat_branches', JSON.stringify(branches.map(branch => branch.name)));
+                localStorage.setItem('shawarmat_menu', JSON.stringify(menu.map(item => item.data)));
+                localStorage.setItem('shawarmat_offers', JSON.stringify(offers.map(({ id, title, description, price, image }) => ({
+                    id, title, description, price, image
+                }))));
+            }
+            renderCategoryOptions();
+            renderBranchOptions();
+            renderManagementLists();
+            renderMenu();
+            renderMenuManager();
+            renderOffersManager();
+            updateItemOptionFields();
+            clearSyncStatus();
+        }
+
+        function loadSharedDataOnce(initialize = false) {
+            if (!sharedDataLoadPromise) {
+                sharedDataLoadPromise = loadSharedData(initialize).finally(() => { sharedDataLoadPromise = null; });
+            }
+            return sharedDataLoadPromise;
+        }
+
+        function showAdminLogin(message = '') {
+            document.getElementById('admin-wrapper').classList.add('is-locked');
+            document.getElementById('admin-auth-overlay').hidden = false;
+            document.getElementById('admin-auth-message').textContent = message;
+        }
+
+        function hideAdminLogin() {
+            document.getElementById('admin-wrapper').classList.remove('is-locked');
+            document.getElementById('admin-auth-overlay').hidden = true;
+            document.getElementById('admin-auth-message').textContent = '';
+        }
+
+        async function handleAuthSession(session) {
+            currentSession = session;
+            if (!session) {
+                showAdminLogin(supabaseClient ? '' : 'تعذر تحميل خدمة الدخول. تحقق من اتصال الإنترنت ثم أعد تحميل الصفحة.');
+                return;
+            }
+            if (session.user?.app_metadata?.role !== 'admin') {
+                showAdminLogin('هذا الحساب لا يملك صلاحية الإدارة.');
+                return;
+            }
+            hideAdminLogin();
+            await loadSharedDataOnce(true);
+            updateAdminPanel();
+            clearSyncStatus();
+        }
+
+        async function initializeAuth() {
+            if (!supabaseClient) {
+                handleAuthSession(null);
+                return;
+            }
+            supabaseClient.auth.onAuthStateChange((_event, session) => {
+                void runAdminAction(() => handleAuthSession(session));
             });
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (error) throw new Error(error.message);
+            await handleAuthSession(data.session);
+        }
+
+        async function signInAdmin(event) {
+            event.preventDefault();
+            const message = document.getElementById('admin-auth-message');
+            message.textContent = '';
+            if (!supabaseClient) {
+                message.textContent = 'تعذر الاتصال بخدمة الدخول. تحقق من اتصال الإنترنت.';
+                return;
+            }
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                message.textContent = `تعذر تسجيل الدخول: ${error.message}`;
+                return;
+            }
+            await handleAuthSession(data.session);
+        }
+
+        async function signOutAdmin() {
+            if (!supabaseClient) return;
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) throw new Error(error.message);
+            await handleAuthSession(null);
+        }
+
+        function renderCustomerOffers() {
+            const offers = getOffers();
+            const section = document.getElementById('customer-offers');
+            const list = document.getElementById('customer-offers-list');
+            section.hidden = offers.length === 0;
+            list.innerHTML = offers.map(offer => `
+                <article class="offer-card${offer.image ? ' has-image' : ''}">
+                    ${offer.image ? `<img class="offer-image" src="${escapeHTML(offer.image)}" alt="">` : ''}
+                    <div>
+                        <h3 class="offer-title">${escapeHTML(offer.title)}</h3>
+                        ${offer.description ? `<p class="offer-description">${escapeHTML(offer.description)}</p>` : ''}
+                        ${offer.price !== null && offer.price !== undefined && offer.price !== ''
+                            ? `<span class="offer-price">${Number(offer.price).toLocaleString('ar-SA')} ريال</span>` : ''}
+                    </div>
+                </article>
+            `).join('');
         }
 
         function changeQty(itemId, val) {
@@ -768,12 +1261,25 @@
             if (window.location.hash === '#admin') {
                 document.getElementById('customer-view').style.display = 'none';
                 document.getElementById('admin-wrapper').style.display = 'block';
+                if (currentSession?.user?.app_metadata?.role === 'admin') {
+                    hideAdminLogin();
+                    void runAdminAction(() => loadSharedDataOnce(true));
+                } else {
+                    showAdminLogin();
+                }
                 updateAdminPanel();
                 renderMenuManager();
+                renderOffersManager();
             } else {
                 document.getElementById('customer-view').style.display = 'block';
                 document.getElementById('admin-wrapper').style.display = 'none';
                 renderMenu();
+                if (supabaseClient) {
+                    loadSharedData().catch(error => {
+                        console.error('تعذر تحميل بيانات المنيو المشتركة:', error);
+                        showSyncStatus(`تعذر تحميل التعديلات المشتركة: ${error.message || error}`);
+                    });
+                }
             }
         }
 
@@ -804,7 +1310,8 @@
         }
 
         function updateItemOptionFields() {
-            const isFood = document.getElementById('new-item-type').value === 'food';
+            const selectedCategory = getCategories().find(category => category.id === document.getElementById('new-item-type').value);
+            const isFood = (selectedCategory?.kind || selectedCategory?.id) === 'food';
             const hasCheeseOptions = isFood && document.getElementById('new-item-option-mode').value === 'cheese';
             document.getElementById('new-item-option-mode-group').hidden = !isFood;
             document.getElementById('new-item-cheese-price-group').hidden = !hasCheeseOptions;
@@ -812,7 +1319,8 @@
         }
 
         function updateEditOptionFields() {
-            const isFood = document.getElementById('edit-item-type').value === 'food';
+            const selectedCategory = getCategories().find(category => category.id === document.getElementById('edit-item-type').value);
+            const isFood = (selectedCategory?.kind || selectedCategory?.id) === 'food';
             const hasCheeseOptions = isFood && document.getElementById('edit-item-option-mode').value === 'cheese';
             document.getElementById('edit-item-option-mode-group').hidden = !isFood;
             document.getElementById('edit-item-cheese-price-group').hidden = !hasCheeseOptions;
@@ -833,6 +1341,7 @@
         function renderMenuManager() {
             const tableBody = document.getElementById('menu-items-table-body');
             const menuData = getMenuData();
+            const categories = getCategories();
             if (menuData.length === 0) {
                 tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">لا توجد أصناف في المنيو</td></tr>';
                 return;
@@ -843,12 +1352,12 @@
                     const label = option.label ? `${option.label}: ` : '';
                     return `${label}${Number(option.price).toLocaleString('ar-SA')} ريال`;
                 }).join(' / ');
-                const branch = item.branch || 'مشترك بين الفرعين';
-                const type = item.type === 'food' ? 'وجبات' : 'مشروبات';
+                const branch = item.branch || 'مشترك بين جميع الفروع';
+                const type = getCategoryForItem(item, categories)?.name || 'غير مصنف';
                 return `
                     <tr>
                         <td>${escapeHTML(item.name)}</td>
-                        <td>${type}</td>
+                        <td>${escapeHTML(type)}</td>
                         <td>${escapeHTML(branch)}</td>
                         <td>${escapeHTML(prices)}</td>
                         <td>
@@ -865,11 +1374,14 @@
         function openEditItemDialog(itemId) {
             const item = getMenuData().find(menuItem => String(menuItem.id) === String(itemId));
             if (!item) return;
+            renderCategoryOptions();
+            renderBranchOptions();
             document.getElementById('edit-item-id').value = item.id;
             document.getElementById('edit-item-name').value = item.name;
-            document.getElementById('edit-item-type').value = item.type;
+            const itemCategory = getCategoryForItem(item);
+            document.getElementById('edit-item-type').value = itemCategory?.id || getCategories()[0]?.id || '';
             document.getElementById('edit-item-branch').value = item.branch || 'all';
-            document.getElementById('edit-item-option-mode').value = item.type === 'food' && item.options.length > 1 ? 'cheese' : 'single';
+            document.getElementById('edit-item-option-mode').value = (itemCategory?.kind || itemCategory?.id) === 'food' && item.options.length > 1 ? 'cheese' : 'single';
             const noCheeseOption = item.options.find(option => option.label === 'بدون جبنة' || option.label === 'بدون جبن') || item.options[0];
             const cheeseOption = item.options.find(option => option.label === 'بالجبنة' || option.label === 'بالجبن') || item.options[1];
             document.getElementById('edit-item-price').value = noCheeseOption.price;
@@ -888,7 +1400,10 @@
             event.preventDefault();
             const itemId = document.getElementById('edit-item-id').value;
             const name = document.getElementById('edit-item-name').value.trim();
-            const type = document.getElementById('edit-item-type').value;
+            const categoryId = document.getElementById('edit-item-type').value;
+            const category = getCategories().find(itemCategory => itemCategory.id === categoryId);
+            if (!category) { alert('يرجى اختيار قسم صالح للصنف.'); return; }
+            const type = category.kind || category.id;
             const branchValue = document.getElementById('edit-item-branch').value;
             const hasCheeseOptions = type === 'food' && document.getElementById('edit-item-option-mode').value === 'cheese';
             const price = parseFloat(document.getElementById('edit-item-price').value);
@@ -902,22 +1417,280 @@
 
             item.name = name;
             item.type = type;
+            item.categoryId = category.id;
             item.branch = branchValue === 'all' ? undefined : branchValue;
             item.options = hasCheeseOptions ? [{ label: 'بدون جبنة', price, cal }, { label: 'بالجبنة', price: cheesePrice, cal }] : [{ label: type === 'drink' ? 'عادي' : '', price, cal }];
             if (imageFile) item.img = await compressImage(imageFile);
 
+            await upsertSharedRows(sharedTables.menu, getSharedRows(sharedTables.menu, [item]));
             localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
             closeEditItemDialog();
+            renderMenu();
             renderMenuManager();
             alert('تم حفظ تعديلات الصنف بنجاح.');
         }
 
-        function deleteMenuItem(itemId) {
+        async function deleteMenuItem(itemId) {
             const menuData = getMenuData();
             const item = menuData.find(menuItem => String(menuItem.id) === String(itemId));
             if (!item || !confirm(`هل أنت متأكد من حذف "${item.name}"؟`)) return;
-            localStorage.setItem('shawarmat_menu', JSON.stringify(menuData.filter(menuItem => String(menuItem.id) !== String(itemId))));
+            const updatedMenu = menuData.filter(menuItem => String(menuItem.id) !== String(itemId));
+            await deleteSharedRow(sharedTables.menu, item.id);
+            localStorage.setItem('shawarmat_menu', JSON.stringify(updatedMenu));
+            renderMenu();
             renderMenuManager();
+        }
+
+        function renderManagementLists() {
+            const categories = getCategories();
+            const branches = getBranches();
+            document.getElementById('categories-management-list').innerHTML = categories.map(category => `
+                <div class="management-row">
+                    <span class="management-row-label"><i class="fas ${escapeHTML(category.icon)}"></i>${escapeHTML(category.name)}</span>
+                    <button class="item-action-btn item-delete-btn" type="button" data-remove-category="${escapeHTML(category.id)}"
+                        aria-label="حذف قسم ${escapeHTML(category.name)}"><i class="fas fa-trash"></i> حذف</button>
+                </div>
+            `).join('');
+            document.getElementById('branches-management-list').innerHTML = branches.map(branch => `
+                <div class="management-row">
+                    <span class="management-row-label"><i class="fas fa-store"></i>فرع ${escapeHTML(branch)}</span>
+                    <button class="item-action-btn item-delete-btn" type="button" data-remove-branch="${escapeHTML(branch)}"
+                        aria-label="حذف فرع ${escapeHTML(branch)}"><i class="fas fa-trash"></i> حذف</button>
+                </div>
+            `).join('');
+        }
+
+        async function saveCategories(categories) {
+            await replaceSharedRows(sharedTables.categories, getSharedRows(sharedTables.categories, categories));
+            localStorage.setItem('shawarmat_categories', JSON.stringify(categories));
+            renderCategoryOptions();
+            renderManagementLists();
+            renderMenu();
+            renderMenuManager();
+            updateItemOptionFields();
+            updateEditOptionFields();
+        }
+
+        async function addCategory(event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const nameInput = document.getElementById('new-category-name');
+            const name = nameInput.value.trim();
+            const categories = getCategories();
+            if (!name) return;
+            if (categories.some(category => category.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+                alert('يوجد قسم بهذا الاسم بالفعل.');
+                return;
+            }
+            categories.push({
+                id: `category-${Date.now()}`,
+                name,
+                icon: categoryIcons.includes(document.getElementById('new-category-icon').value)
+                    ? document.getElementById('new-category-icon').value : 'fa-star',
+                kind: document.getElementById('new-category-kind').value === 'drink' ? 'drink' : 'food'
+            });
+            await saveCategories(categories);
+            form.reset();
+            alert('تمت إضافة القسم بنجاح.');
+        }
+
+        async function deleteCategory(categoryId) {
+            const categories = getCategories();
+            if (categories.length <= 1) {
+                alert('يجب الإبقاء على قسم واحد على الأقل.');
+                return;
+            }
+            const category = categories.find(item => item.id === categoryId);
+            if (!category) return;
+            const remainingCategories = categories.filter(item => item.id !== categoryId);
+            const targetCategory = remainingCategories.find(item => (item.kind || item.id) === (category.kind || category.id))
+                || remainingCategories[0];
+            const menuData = getMenuData();
+            const affectedItems = menuData.filter(item => getCategoryForItem(item, categories)?.id === categoryId);
+            const message = affectedItems.length
+                ? `سيتم نقل ${affectedItems.length} صنف إلى قسم "${targetCategory.name}" قبل حذف "${category.name}". هل تريد المتابعة؟`
+                : `هل تريد حذف القسم "${category.name}"؟`;
+            if (!confirm(message)) return;
+            affectedItems.forEach(item => {
+                item.categoryId = targetCategory.id;
+                item.type = targetCategory.kind || targetCategory.id;
+            });
+            await upsertSharedRows(sharedTables.menu, getSharedRows(sharedTables.menu, affectedItems));
+            await deleteSharedRow(sharedTables.categories, category.id);
+            localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
+            localStorage.setItem('shawarmat_categories', JSON.stringify(remainingCategories));
+            renderCategoryOptions();
+            renderManagementLists();
+            renderMenu();
+            renderMenuManager();
+            updateItemOptionFields();
+            updateEditOptionFields();
+        }
+
+        async function addBranch(event) {
+            event.preventDefault();
+            const input = document.getElementById('new-branch-name');
+            const branch = input.value.trim();
+            const branches = getBranches();
+            if (!branch) return;
+            if (branches.some(item => item.toLocaleLowerCase() === branch.toLocaleLowerCase())) {
+                alert('يوجد فرع بهذا الاسم بالفعل.');
+                return;
+            }
+            branches.push(branch);
+            await upsertSharedRows(sharedTables.branches, getSharedRows(sharedTables.branches, [branch]).map(row => ({
+                ...row, sort_order: branches.length - 1
+            })));
+            localStorage.setItem('shawarmat_branches', JSON.stringify(branches));
+            input.value = '';
+            renderBranchOptions();
+            renderManagementLists();
+            renderMenu();
+            alert('تمت إضافة الفرع بنجاح.');
+        }
+
+        async function deleteBranch(branch) {
+            const branches = getBranches();
+            if (branches.length <= 1) {
+                alert('يجب الإبقاء على فرع واحد على الأقل.');
+                return;
+            }
+            const affectedItems = getMenuData().filter(item => item.branch === branch);
+            const message = affectedItems.length
+                ? `سيتم جعل ${affectedItems.length} صنفًا مشتركًا بين الفروع قبل حذف فرع "${branch}". هل تريد المتابعة؟`
+                : `هل تريد حذف فرع "${branch}"؟`;
+            if (!confirm(message)) return;
+            const menuData = getMenuData();
+            menuData.forEach(item => {
+                if (item.branch === branch) delete item.branch;
+            });
+            const remainingBranches = branches.filter(item => item !== branch);
+            const affectedItemIds = new Set(affectedItems.map(item => String(item.id)));
+            const updatedItems = menuData.filter(item => affectedItemIds.has(String(item.id)));
+            await upsertSharedRows(sharedTables.menu, getSharedRows(sharedTables.menu, updatedItems));
+            await deleteSharedRow(sharedTables.branches, branch);
+            localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
+            localStorage.setItem('shawarmat_branches', JSON.stringify(remainingBranches));
+            if (currentBranch === branch) {
+                currentBranch = remainingBranches[0];
+                document.getElementById('branch-modal').style.display = 'flex';
+            }
+            renderBranchOptions();
+            renderManagementLists();
+            renderMenu();
+            renderMenuManager();
+        }
+
+        function handleManagementListClick(event) {
+            const categoryButton = event.target.closest('button[data-remove-category]');
+            const branchButton = event.target.closest('button[data-remove-branch]');
+            if (categoryButton) void runAdminAction(() => deleteCategory(categoryButton.dataset.removeCategory));
+            if (branchButton) void runAdminAction(() => deleteBranch(branchButton.dataset.removeBranch));
+        }
+
+        function renderOffersManager() {
+            const offers = getOffers();
+            const list = document.getElementById('offers-management-list');
+            list.innerHTML = offers.length ? offers.map(offer => `
+                <article class="offer-admin-card">
+                    <h4>${escapeHTML(offer.title)}</h4>
+                    ${offer.description ? `<p>${escapeHTML(offer.description)}</p>` : ''}
+                    ${offer.price !== null && offer.price !== undefined && offer.price !== ''
+                        ? `<p>السعر: ${Number(offer.price).toLocaleString('ar-SA')} ريال</p>` : ''}
+                    <div class="offer-admin-actions">
+                        <button class="item-action-btn item-edit-btn" type="button" data-edit-offer="${escapeHTML(offer.id)}">
+                            <i class="fas fa-pen"></i> تعديل
+                        </button>
+                        <button class="item-action-btn item-delete-btn" type="button" data-delete-offer="${escapeHTML(offer.id)}">
+                            <i class="fas fa-trash"></i> حذف
+                        </button>
+                    </div>
+                </article>
+            `).join('') : '<p class="management-empty">لا توجد عروض مضافة. لن يظهر قسم العروض للعملاء حتى تضيف عرضًا.</p>';
+        }
+
+        function resetOfferForm() {
+            document.getElementById('offer-form').reset();
+            document.getElementById('offer-edit-id').value = '';
+            document.getElementById('offer-form-heading').textContent = 'إضافة عرض جديد';
+            document.getElementById('offer-submit-button').innerHTML = '<i class="fas fa-plus"></i> إضافة العرض';
+            document.getElementById('offer-cancel-edit').hidden = true;
+        }
+
+        function cancelOfferEdit() {
+            resetOfferForm();
+        }
+
+        function editOffer(offerId) {
+            const offer = getOffers().find(item => String(item.id) === String(offerId));
+            if (!offer) return;
+            document.getElementById('offer-edit-id').value = offer.id;
+            document.getElementById('offer-title-input').value = offer.title;
+            document.getElementById('offer-description-input').value = offer.description || '';
+            document.getElementById('offer-price-input').value = offer.price ?? '';
+            document.getElementById('offer-image-input').value = '';
+            document.getElementById('offer-form-heading').textContent = 'تعديل العرض';
+            document.getElementById('offer-submit-button').innerHTML = '<i class="fas fa-check"></i> حفظ التعديل';
+            document.getElementById('offer-cancel-edit').hidden = false;
+            document.getElementById('offer-title-input').focus();
+        }
+
+        async function saveOffer(event) {
+            event.preventDefault();
+            const title = document.getElementById('offer-title-input').value.trim();
+            const description = document.getElementById('offer-description-input').value.trim();
+            const priceInput = document.getElementById('offer-price-input').value.trim();
+            const price = priceInput === '' ? null : Number(priceInput);
+            const editId = document.getElementById('offer-edit-id').value;
+            const imageFile = document.getElementById('offer-image-input').files[0];
+            if (!title) {
+                alert('يرجى كتابة عنوان العرض.');
+                return;
+            }
+            if (priceInput !== '' && (!Number.isFinite(price) || price < 0)) {
+                alert('يرجى إدخال سعر صحيح للعرض.');
+                return;
+            }
+            const offers = getOffers();
+            const existingOffer = offers.find(offer => String(offer.id) === String(editId));
+            if (editId && !existingOffer) {
+                alert('تعذر العثور على العرض المطلوب تعديله. حدّث الصفحة وحاول مرة أخرى.');
+                resetOfferForm();
+                renderOffersManager();
+                return;
+            }
+            const image = imageFile ? await compressImage(imageFile) : existingOffer?.image || '';
+            const offer = { id: existingOffer?.id || `offer-${Date.now()}`, title, description, price, image };
+            const updatedOffers = existingOffer
+                ? offers.map(item => String(item.id) === String(editId) ? offer : item)
+                : [...offers, offer];
+            await upsertSharedRows(sharedTables.offers, getSharedRows(sharedTables.offers, [offer]).map(row => ({
+                ...row, sort_order: updatedOffers.findIndex(item => String(item.id) === String(offer.id))
+            })));
+            localStorage.setItem('shawarmat_offers', JSON.stringify(updatedOffers));
+            resetOfferForm();
+            renderOffersManager();
+            renderCustomerOffers();
+            alert(existingOffer ? 'تم حفظ تعديلات العرض بنجاح.' : 'تمت إضافة العرض بنجاح.');
+        }
+
+        async function deleteOffer(offerId) {
+            const offers = getOffers();
+            const offer = offers.find(item => String(item.id) === String(offerId));
+            if (!offer || !confirm(`هل أنت متأكد من حذف العرض "${offer.title}"؟`)) return;
+            const updatedOffers = offers.filter(item => String(item.id) !== String(offerId));
+            await deleteSharedRow(sharedTables.offers, offer.id);
+            localStorage.setItem('shawarmat_offers', JSON.stringify(updatedOffers));
+            if (String(document.getElementById('offer-edit-id').value) === String(offerId)) resetOfferForm();
+            renderOffersManager();
+            renderCustomerOffers();
+        }
+
+        function handleOffersListClick(event) {
+            const editButton = event.target.closest('button[data-edit-offer]');
+            const deleteButton = event.target.closest('button[data-delete-offer]');
+            if (editButton) editOffer(editButton.dataset.editOffer);
+            if (deleteButton) void runAdminAction(() => deleteOffer(deleteButton.dataset.deleteOffer));
         }
 
         const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -1061,7 +1834,10 @@
 
         async function addNewItem() {
             const name = document.getElementById('new-item-name').value.trim();
-            const type = document.getElementById('new-item-type').value;
+            const categoryId = document.getElementById('new-item-type').value;
+            const category = getCategories().find(itemCategory => itemCategory.id === categoryId);
+            if (!category) { alert('يرجى اختيار قسم صالح للصنف.'); return; }
+            const type = category.kind || category.id;
             const hasCheeseOptions = type === 'food' && document.getElementById('new-item-option-mode').value === 'cheese';
             const branchValue = document.getElementById('new-item-branch').value;
             const branch = branchValue === 'all' ? undefined : branchValue;
@@ -1076,26 +1852,54 @@
             const menuData = getMenuData();
             const image = await compressImage(imageFile);
             menuData.push({
-                id: Date.now(), name, type, branch, img: image,
+                id: Date.now(), name, type, categoryId: category.id, branch, img: image,
                 options: hasCheeseOptions ? [{ label: 'بدون جبنة', price, cal }, { label: 'بالجبنة', price: cheesePrice, cal }] : [{ label: '', price, cal }]
             });
 
+            await upsertSharedRows(sharedTables.menu, getSharedRows(sharedTables.menu, [menuData[menuData.length - 1]]));
             localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
+            renderMenu();
             renderMenuManager();
             alert('تمت إضافة الصنف بنجاح.');
         }
 
         window.onload = function() {
+            renderCategoryOptions();
+            renderBranchOptions();
+            renderManagementLists();
             updateItemOptionFields();
             checkRoute();
             renderMenuManager();
+            renderOffersManager();
+            document.getElementById('branch-options').addEventListener('click', event => {
+                const button = event.target.closest('button[data-branch]');
+                if (button) selectBranch(button.dataset.branch);
+            });
+            document.getElementById('admin-login-form').addEventListener('submit', event => {
+                void runAdminAction(() => signInAdmin(event));
+            });
+            document.getElementById('category-form').addEventListener('submit', event => {
+                void runAdminAction(() => addCategory(event));
+            });
+            document.getElementById('branch-form').addEventListener('submit', event => {
+                void runAdminAction(() => addBranch(event));
+            });
+            document.getElementById('categories-management-list').addEventListener('click', handleManagementListClick);
+            document.getElementById('branches-management-list').addEventListener('click', handleManagementListClick);
+            document.getElementById('offer-form').addEventListener('submit', event => {
+                void runAdminAction(() => saveOffer(event));
+            });
+            document.getElementById('offers-management-list').addEventListener('click', handleOffersListClick);
             document.getElementById('menu-items-table-body').addEventListener('click', event => {
                 const button = event.target.closest('button[data-action]');
                 if (!button) return;
                 if (button.dataset.action === 'edit') openEditItemDialog(button.dataset.itemId);
-                if (button.dataset.action === 'delete') deleteMenuItem(button.dataset.itemId);
+                if (button.dataset.action === 'delete') void runAdminAction(() => deleteMenuItem(button.dataset.itemId));
             });
-            document.getElementById('edit-item-form').addEventListener('submit', saveEditedItem);
+            document.getElementById('edit-item-form').addEventListener('submit', event => {
+                void runAdminAction(() => saveEditedItem(event));
+            });
+            void runAdminAction(initializeAuth);
         };
     </script>
 </body>
