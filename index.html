@@ -226,8 +226,7 @@
             from { transform: translateX(-50%); }
             to { transform: translateX(0); }
         }
-        .offer-description, .offer-expiry { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; overflow-wrap: anywhere; }
-        .offer-price { display: inline-block; color: white; font-weight: 700; margin-top: 7px; }
+        .offer-expiry { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; overflow-wrap: anywhere; }
         .offer-admin-list { display: grid; gap: 12px; }
         .offer-admin-card, .category-admin-row {
             min-width: 0; padding: 14px; border-radius: 12px; background: var(--bg-control);
@@ -777,7 +776,7 @@
     </dialog>
 
     <script>
-        // إعدادات الاتصال بـ Supabase (ضعي رابط مشروعك والمفتاح هنا)
+        // إعدادات الاتصال بـ Supabase
         const SUPABASE_URL = 'https://puiiwbqthhvzfsdqaywc.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_s_rWNZvNN7oo8Yf-KDNBdg_eeKYja8J';
         const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -1142,7 +1141,7 @@
         function closeCartModal() { document.getElementById('cart-modal').style.display = 'none'; }
         function removeFromCart(index) { cart.splice(index, 1); updateCartCount(); openCartModal(); }
 
-        // دالة إرسال الطلب وحفظه في جدول orders بقاعدة بيانات Supabase وفي LocalStorage
+        // إرسال الطلب وحفظه في جدول orders في Supabase
         async function sendToWhatsApp() {
             if (cart.length === 0) { alert('السلة فارغة!'); return; }
             const name = document.getElementById('client-name').value.trim();
@@ -1169,7 +1168,6 @@
             if (deliveryFee) orderText += `رسوم التوصيل: ${deliveryFee} ريال\n`;
             orderText += `💰 *المجموع الكلي: ${total} ريال*\n`;
 
-            // تسجيل الطلب في جدول orders في Supabase إذا كان متصلاً
             if (supabaseClient) {
                 try {
                     await supabaseClient.from('orders').insert([
