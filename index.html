@@ -183,14 +183,34 @@
         .empty-category, .management-empty { color: var(--text-muted); padding: 12px 4px; }
         .customer-offers { margin-bottom: 20px; }
         .customer-offers[hidden] { display: none; }
-        .offers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
-        .offer-card {
-            display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 12px;
-            min-width: 0; padding: 14px; border: 1px solid rgba(227,66,52,0.5); border-radius: 16px;
-            background: linear-gradient(135deg, rgba(227,66,52,0.2), var(--bg-card) 68%);
+        .offer-ticker {
+            display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden;
+            padding: 11px 14px; border: 1px solid rgba(227,66,52,0.5); border-radius: 14px;
+            background: linear-gradient(110deg, rgba(227,66,52,0.2), var(--bg-card) 68%);
         }
-        .offer-image { width: 84px; height: 84px; border-radius: 12px; object-fit: cover; background: var(--bg-control); }
-        .offer-title { color: var(--accent); font-size: 1.05rem; font-weight: 900; overflow-wrap: anywhere; }
+        .offer-ticker-label {
+            flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+            color: var(--accent); font-weight: 900;
+        }
+        .offer-ticker-viewport { flex: 1 1 auto; min-width: 0; overflow: hidden; direction: ltr; }
+        .offer-ticker-track {
+            display: flex; width: max-content; will-change: transform;
+            animation: offer-ticker-move 28s linear infinite;
+        }
+        .offer-ticker:hover .offer-ticker-track,
+        .offer-ticker:focus-within .offer-ticker-track { animation-play-state: paused; }
+        .offer-ticker-group { display: flex; flex: 0 0 auto; align-items: center; gap: 28px; padding-inline: 14px; }
+        .offer-ticker-item {
+            display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px;
+            direction: rtl; color: var(--text-main); white-space: nowrap;
+        }
+        .offer-ticker-item strong { color: var(--accent); }
+        .offer-ticker-item span { color: var(--text-muted); font-size: 0.9rem; }
+        .offer-ticker-separator { color: var(--primary); }
+        @keyframes offer-ticker-move {
+            from { transform: translateX(-50%); }
+            to { transform: translateX(0); }
+        }
         .offer-description, .offer-expiry { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; overflow-wrap: anywhere; }
         .offer-price { display: inline-block; color: white; font-weight: 700; margin-top: 7px; }
         .offer-admin-list { display: grid; gap: 12px; }
@@ -303,11 +323,15 @@
             .category-shortcut-icon { width: 46px; height: 46px; }
             .customer-category { scroll-margin-top: 105px; }
             .management-card { padding: 14px; }
-            .offer-card { gap: 10px; padding: 11px; }
+            .offer-ticker { gap: 9px; padding: 10px; }
+            .offer-ticker-group { gap: 18px; }
             .offer-admin-actions { flex-wrap: wrap; }
         }
         @media (prefers-reduced-motion: reduce) {
             .category-nav { scroll-behavior: auto; }
+            .offer-ticker-viewport { overflow-x: auto; }
+            .offer-ticker-track { animation: none; }
+            .offer-ticker-group[aria-hidden="true"] { display: none; }
         }
     </style>
 </head>
@@ -335,8 +359,12 @@
         <div class="container">
             <p id="customer-offers-error" class="offer-database-status" role="alert" hidden></p>
             <section id="customer-offers" class="customer-offers" aria-labelledby="customer-offers-title" hidden>
-                <div class="section-title" id="customer-offers-title"><i class="fas fa-tags"></i> العروض</div>
-                <div id="customer-offers-list" class="offers-grid"></div>
+                <div class="offer-ticker">
+                    <span class="offer-ticker-label" id="customer-offers-title"><i class="fas fa-tags"></i> عروضنا</span>
+                    <div class="offer-ticker-viewport">
+                        <div id="customer-offers-list" class="offer-ticker-track"></div>
+                    </div>
+                </div>
             </section>
             <nav id="customer-category-nav" class="category-nav" aria-label="أقسام المنيو"></nav>
             <div id="customer-menu-sections"></div>
@@ -840,7 +868,16 @@
 
         function getActiveOffers() {
             const now = Date.now();
-            const selectedBranch = promotionBranches.find(branch => branch.name === currentBranch);
+            const normalizeBranchName = name => String(name)
+                .normalize('NFD')
+                .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+                .replace(/^فرع\s*/u, '')
+                .replace(/\s+/g, '')
+                .replace(/[أإآ]/g, 'ا')
+                .replace(/ى/g, 'ي');
+            const selectedBranch = promotionBranches.find(branch =>
+                normalizeBranchName(branch.name) === normalizeBranchName(currentBranch)
+            );
             return promotionsData.filter(offer => {
                 if (!offer.is_active) return false;
                 if (offer.start_date && new Date(offer.start_date).getTime() > now) return false;
@@ -853,18 +890,30 @@
             });
         }
 
+        function getOfferDescription(offer) {
+            const value = Number(offer.discount_value);
+            const formattedValue = Number.isFinite(value) ? value.toLocaleString('ar-SA') : '';
+            return ['percentage', 'percent'].includes(String(offer.discount_type).toLowerCase())
+                ? `خصم ${formattedValue}%`
+                : `السعر: ${formattedValue} ريال`;
+        }
+
         function renderCustomerOffers() {
             const offers = getActiveOffers();
             const section = document.getElementById('customer-offers');
             section.hidden = offers.length === 0;
-            document.getElementById('customer-offers-list').innerHTML = offers.map(offer => `
-                <article class="offer-card">
-                    <div>
-                        <h3 class="offer-title">${escapeHTML(offer.title)}</h3>
-                        <p class="offer-description">${Number(offer.discount_value).toLocaleString('ar-SA')} ${offer.discount_type === 'percentage' ? '% خصم' : 'ريال خصم'}</p>
-                    </div>
-                </article>
+            const items = offers.map(offer => `
+                <span class="offer-ticker-item" role="listitem">
+                    <strong>${escapeHTML(offer.title)}</strong>
+                    <span>${escapeHTML(getOfferDescription(offer))}</span>
+                    ${offer.end_date ? `<span>حتى ${escapeHTML(formatOfferDate(offer.end_date))}</span>` : ''}
+                    <span class="offer-ticker-separator" aria-hidden="true">✦</span>
+                </span>
             `).join('');
+            document.getElementById('customer-offers-list').innerHTML = offers.length ? `
+                <div class="offer-ticker-group" role="list">${items}</div>
+                <div class="offer-ticker-group" aria-hidden="true">${items}</div>
+            ` : '';
             scheduleOfferExpiryRefresh();
         }
 
@@ -1282,7 +1331,7 @@
                 return `
                     <article class="offer-admin-card">
                         <h4>${escapeHTML(offer.title)}</h4>
-                        <p>${Number(offer.discount_value).toLocaleString('ar-SA')} ${offer.discount_type === 'percentage' ? '% خصم' : 'ريال خصم'}</p>
+                        <p>${escapeHTML(getOfferDescription(offer))}</p>
                         <p class="offer-expiry">من ${offer.start_date ? escapeHTML(formatOfferDate(offer.start_date)) : 'الآن'}
                             إلى ${offer.end_date ? escapeHTML(formatOfferDate(offer.end_date)) : 'بدون تاريخ انتهاء'}</p>
                         <p class="offer-expiry">الفروع: ${escapeHTML(branchNames.length ? branchNames.join('، ') : 'كل الفروع')}</p>
