@@ -79,8 +79,11 @@
 
         .menu-card:hover { transform: translateY(-5px); border-color: var(--primary); }
 
-        .card-img-container { height: 150px; background: var(--bg-control); position: relative; }
-        .card-img-container img { width: 100%; height: 100%; object-fit: cover; }
+        .card-img-container {
+            height: 190px; background: var(--bg-control); position: relative;
+            display: grid; place-items: center; padding: 6px;
+        }
+        .card-img-container img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
         
         .calories-badge {
             position: absolute; top: 10px; left: 10px; background: rgba(23,19,29,0.82);
@@ -142,6 +145,8 @@
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(200,179,232,0.2); padding-bottom: 10px; margin-bottom: 15px; }
         .close-modal { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
         .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(200,179,232,0.12); }
+        .cart-fee-row { display: flex; justify-content: space-between; color: var(--text-muted); margin-bottom: 10px; }
+        .cart-fee-row[hidden], #delivery-address-group[hidden] { display: none; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: var(--text-muted); }
         .form-control { width: 100%; padding: 10px; background: var(--bg-control); border: 1px solid rgba(200,179,232,0.25); border-radius: 8px; color: var(--text-main); }
@@ -408,6 +413,17 @@
                     <button class="close-modal" onclick="closeCartModal()">&times;</button>
                 </div>
                 <div id="cart-items-list" style="margin-bottom: 15px;"></div>
+                <div class="form-group">
+                    <label for="order-fulfillment">طريقة استلام الطلب</label>
+                    <select id="order-fulfillment" class="form-control">
+                        <option value="pickup">استلام من المحل — بدون رسوم</option>
+                        <option value="delivery">توصيل — رسوم 10 ريالات</option>
+                    </select>
+                </div>
+                <div id="delivery-fee-row" class="cart-fee-row" hidden>
+                    <span>رسوم التوصيل:</span>
+                    <span>10 ريال</span>
+                </div>
                 <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 1.2rem; margin-bottom: 15px; border-top: 1px solid rgba(200,179,232,0.25); padding-top: 10px;">
                     <span>المجموع الكلي:</span>
                     <span id="cart-total-price" style="color: var(--accent);">0 ريال</span>
@@ -421,8 +437,8 @@
                     <label>رقم الجوال</label>
                     <input type="tel" id="client-phone" class="form-control" placeholder="05xxxxxxxx">
                 </div>
-                <div class="form-group">
-                    <label>عنوان التوصيل / الملاحظات</label>
+                <div id="delivery-address-group" class="form-group" hidden>
+                    <label for="client-address">عنوان التوصيل</label>
                     <textarea id="client-address" class="form-control" rows="2" placeholder="الحي، الشارع، رقم الحوش..."></textarea>
                 </div>
 
@@ -1062,21 +1078,38 @@
             document.getElementById('cart-count').innerText = cart.reduce((sum, item) => sum + item.quantity, 0);
         }
 
+        function getCartSubtotal() {
+            return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        }
+
+        function updateFulfillmentFields() {
+            const isDelivery = document.getElementById('order-fulfillment').value === 'delivery';
+            const addressGroup = document.getElementById('delivery-address-group');
+            const addressInput = document.getElementById('client-address');
+            addressGroup.hidden = !isDelivery;
+            addressInput.required = isDelivery;
+            document.getElementById('delivery-fee-row').hidden = !isDelivery;
+            updateCartTotal();
+        }
+
+        function updateCartTotal() {
+            const isDelivery = document.getElementById('order-fulfillment').value === 'delivery';
+            const deliveryFee = isDelivery ? 10 : 0;
+            document.getElementById('cart-total-price').innerText = `${getCartSubtotal() + deliveryFee} ريال`;
+        }
+
         function openCartModal() {
             dismissCartFeedback();
             const modal = document.getElementById('cart-modal');
             const listContainer = document.getElementById('cart-items-list');
-            const totalContainer = document.getElementById('cart-total-price');
             
             listContainer.innerHTML = '';
-            let total = 0;
 
             if (cart.length === 0) {
                 listContainer.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">السلة فارغة حالياً</p>';
             } else {
                 cart.forEach((ci, index) => {
                     let itemTotal = ci.price * ci.quantity;
-                    total += itemTotal;
                     listContainer.innerHTML += `
                         <div class="cart-item">
                             <div>
@@ -1089,7 +1122,7 @@
                     `;
                 });
             }
-            totalContainer.innerText = `${total} ريال`;
+            updateFulfillmentFields();
             modal.style.display = 'flex';
         }
 
@@ -1101,19 +1134,27 @@
             if (cart.length === 0) { alert('السلة فارغة!'); return; }
             const name = document.getElementById('client-name').value.trim();
             const phone = document.getElementById('client-phone').value.trim();
-            const address = document.getElementById('client-address').value.trim();
+            const fulfillment = document.getElementById('order-fulfillment').value;
+            const isDelivery = fulfillment === 'delivery';
+            const address = isDelivery ? document.getElementById('client-address').value.trim() : '';
+            const deliveryFee = isDelivery ? 10 : 0;
 
             if (!name || !phone) { alert('يرجى كتابة الاسم ورقم الجوال.'); return; }
+            if (isDelivery && !address) { alert('يرجى كتابة عنوان التوصيل.'); return; }
 
-            let total = 0;
-            let orderText = `*طلب جديد عبر المنيو الإلكتروني* 🌯\n📍 *الفرع:* ${currentBranch}\n\n👤 *العميل:* ${name}\n📞 *الجوال:* ${phone}\n📍 *العنوان:* ${address || 'غير متوفر'}\n\n🛒 *الطلبات:* \n`;
+            let total = getCartSubtotal();
+            const subtotal = total;
+            total += deliveryFee;
+            const fulfillmentText = isDelivery ? 'توصيل' : 'استلام من المحل';
+            let orderText = `*طلب جديد عبر المنيو الإلكتروني* 🌯\n📍 *الفرع:* ${currentBranch}\n🚚 *طريقة الاستلام:* ${fulfillmentText}\n\n👤 *العميل:* ${name}\n📞 *الجوال:* ${phone}${isDelivery ? `\n🏠 *عنوان التوصيل:* ${address}` : ''}\n\n🛒 *الطلبات:* \n`;
 
             cart.forEach((ci, idx) => {
                 let itemTotal = ci.price * ci.quantity;
                 orderText += `${idx + 1}. ${ci.name} × (${ci.quantity}) - ${itemTotal} ريال\n`;
-                total += itemTotal;
             });
-            orderText += `\n💰 *المجموع:* ${total} ريال\n`;
+            orderText += `\nالمجموع الفرعي: ${subtotal} ريال\n`;
+            if (deliveryFee) orderText += `رسوم التوصيل: ${deliveryFee} ريال\n`;
+            orderText += `💰 *المجموع الكلي: ${total} ريال*\n`;
 
             // تسجيل الطلب في جدول orders في Supabase إذا كان متصلاً
             if (supabaseClient) {
@@ -1129,6 +1170,7 @@
             let ordersHistory = JSON.parse(localStorage.getItem('shawarmat_orders')) || [];
             ordersHistory.push({
                 id: Date.now().toString().slice(-4), branch: currentBranch, name, phone, address,
+                fulfillment, deliveryFee, subtotal,
                 details: cart.map(c => `${c.name} (×${c.quantity})`).join(', '), total,
                 createdAt: new Date().toISOString(), time: new Date().toLocaleTimeString('ar-SA')
             });
@@ -1742,6 +1784,7 @@
                 if (button) deleteCategory(button.dataset.deleteCategory);
             });
             document.getElementById('offer-form').addEventListener('submit', saveOffer);
+            document.getElementById('order-fulfillment').addEventListener('change', updateFulfillmentFields);
             document.getElementById('offers-management-list').addEventListener('click', event => {
                 const editButton = event.target.closest('button[data-edit-offer]');
                 const deleteButton = event.target.closest('button[data-delete-offer]');
