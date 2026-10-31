@@ -52,7 +52,6 @@
         header {
             background: linear-gradient(135deg, var(--bg-card), #34223C);
             padding: 20px; text-align: center; border-bottom: 3px solid var(--lavender);
-            position: sticky; top: 0; z-index: 1000;
         }
 
         .logo-container h1 { color: var(--primary); font-size: 1.8rem; font-weight: 900; }
@@ -112,7 +111,7 @@
         .add-to-cart-btn:hover { background: var(--primary-dark); }
 
         .cart-floating {
-            position: fixed; bottom: 20px; left: 20px; background: var(--primary); color: white;
+            position: fixed; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); left: 20px; background: var(--primary); color: white;
             padding: 12px 20px; border-radius: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.5);
             cursor: pointer; z-index: 999; display: flex; align-items: center; gap: 10px; font-weight: 700;
         }
@@ -179,7 +178,12 @@
             border: 1px solid rgba(212,255,63,0.35); font-size: 1.15rem;
         }
         .category-shortcut-label { max-width: 100%; font-size: 0.78rem; font-weight: 700; line-height: 1.35; }
-        .customer-category { scroll-margin-top: 150px; }
+        .customer-menu-toolbar {
+            position: sticky; top: 0; z-index: 1000; padding: 8px 0 2px;
+            background: rgba(23,19,29,0.97); border-bottom: 1px solid rgba(200,179,232,0.18);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.22); backdrop-filter: blur(12px);
+        }
+        .customer-category { scroll-margin-top: 175px; }
         .empty-category, .management-empty { color: var(--text-muted); padding: 12px 4px; }
         .customer-offers { margin-bottom: 20px; }
         .customer-offers[hidden] { display: none; }
@@ -321,11 +325,12 @@
             .category-nav::-webkit-scrollbar { display: none; }
             .category-shortcut { flex-basis: 82px; min-height: 94px; }
             .category-shortcut-icon { width: 46px; height: 46px; }
-            .customer-category { scroll-margin-top: 105px; }
+            .customer-category { scroll-margin-top: 155px; }
             .management-card { padding: 14px; }
             .offer-ticker { gap: 9px; padding: 10px; }
             .offer-ticker-group { gap: 18px; }
             .offer-admin-actions { flex-wrap: wrap; }
+            .cart-floating { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 14px; }
         }
         @media (prefers-reduced-motion: reduce) {
             .category-nav { scroll-behavior: auto; }
@@ -357,16 +362,18 @@
         </header>
 
         <div class="container">
-            <p id="customer-offers-error" class="offer-database-status" role="alert" hidden></p>
-            <section id="customer-offers" class="customer-offers" aria-labelledby="customer-offers-title" hidden>
-                <div class="offer-ticker">
-                    <span class="offer-ticker-label" id="customer-offers-title"><i class="fas fa-tags"></i> عروضنا</span>
-                    <div class="offer-ticker-viewport">
-                        <div id="customer-offers-list" class="offer-ticker-track"></div>
+            <div class="customer-menu-toolbar">
+                <p id="customer-offers-error" class="offer-database-status" role="alert" hidden></p>
+                <section id="customer-offers" class="customer-offers" aria-labelledby="customer-offers-title" hidden>
+                    <div class="offer-ticker">
+                        <span class="offer-ticker-label" id="customer-offers-title"><i class="fas fa-tags"></i> عروضنا</span>
+                        <div class="offer-ticker-viewport">
+                            <div id="customer-offers-list" class="offer-ticker-track"></div>
+                        </div>
                     </div>
-                </div>
-            </section>
-            <nav id="customer-category-nav" class="category-nav" aria-label="أقسام المنيو"></nav>
+                </section>
+                <nav id="customer-category-nav" class="category-nav" aria-label="أقسام المنيو"></nav>
+            </div>
             <div id="customer-menu-sections"></div>
 
             <div class="notes-section">
