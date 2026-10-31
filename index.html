@@ -226,7 +226,8 @@
             from { transform: translateX(-50%); }
             to { transform: translateX(0); }
         }
-        .offer-expiry { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; overflow-wrap: anywhere; }
+        .offer-description, .offer-expiry { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; overflow-wrap: anywhere; }
+        .offer-price { display: inline-block; color: white; font-weight: 700; margin-top: 7px; }
         .offer-admin-list { display: grid; gap: 12px; }
         .offer-admin-card, .category-admin-row {
             min-width: 0; padding: 14px; border-radius: 12px; background: var(--bg-control);
@@ -562,6 +563,7 @@
                 <section id="add-item-section" class="admin-view">
                 <div class="admin-form">
                     <h3 style="margin-bottom: 15px; color: var(--primary);">إضافة صنف جديد للمنيو</h3>
+                    <p id="products-database-status" class="offer-database-status" role="alert" hidden></p>
                     <div class="form-group">
                         <label>اسم الصنف</label>
                         <input type="text" id="new-item-name" class="form-control" placeholder="مثال: شاورما دجاج حراق أو عصير مانجو">
@@ -802,7 +804,7 @@
         ];
         const categoryIcons = ['fa-utensils', 'fa-mug-hot', 'fa-ice-cream', 'fa-burger', 'fa-cookie-bite', 'fa-bowl-food', 'fa-star'];
         let currentBranch = "حلي";
-        let menuData = JSON.parse(localStorage.getItem('shawarmat_menu')) || defaultMenu;
+        let menuData = [];
         let cart = [];
         let cartFeedbackTimer = null;
         let offerExpiryTimer = null;
@@ -825,6 +827,7 @@
             const categories = getCategories();
             ['new-item-type', 'edit-item-type'].forEach(id => {
                 const select = document.getElementById(id);
+                if (!select) return;
                 const previousValue = select.value;
                 select.innerHTML = categories.map(category =>
                     `<option value="${escapeHTML(category.id)}">${escapeHTML(category.name)}</option>`
@@ -851,18 +854,61 @@
             }).format(new Date(value));
         }
 
+        // جلب المنتجات من جدول products في Supabase
+        async function loadMenuFromSupabase() {
+            const status = document.getElementById('products-database-status');
+            if (status) status.hidden = true;
+
+            if (!supabaseClient) {
+                menuData = defaultMenu;
+                renderMenu();
+                renderMenuManager();
+                return;
+            }
+
+            const { data, error } = await supabaseClient.from('products').select('*');
+            if (error) {
+                console.error('تعذر جلب المنتجات من Supabase:', error);
+                if (status) {
+                    status.textContent = `تعذر جلب المنتجات: ${error.message}`;
+                    status.hidden = false;
+                }
+                menuData = defaultMenu;
+            } else if (data && data.length > 0) {
+                menuData = data.map(p => {
+                    let parsedOptions = [{ label: '', price: Number(p.base_price), cal: '500' }];
+                    if (p.description) {
+                        try {
+                            const parsed = JSON.parse(p.description);
+                            if (Array.isArray(parsed)) parsedOptions = parsed;
+                        } catch (e) {
+                            // وصف عادي
+                        }
+                    }
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        categoryId: p.category_id || 'food',
+                        type: p.category_id === 'drink' || p.category_id === 3 ? 'drink' : 'food',
+                        branch: p.branch || 'all',
+                        img: p.image_url || 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=500&q=80',
+                        options: parsedOptions
+                    };
+                });
+            } else {
+                menuData = defaultMenu;
+            }
+
+            renderMenu();
+            renderMenuManager();
+        }
+
         async function loadPromotions() {
             const status = document.getElementById('offers-database-status');
             const customerStatus = document.getElementById('customer-offers-error');
-            status.hidden = true;
-            customerStatus.hidden = true;
-            if (!supabaseClient) {
-                const message = 'تعذر الاتصال بـ Supabase. تحقق من اتصال الإنترنت وحاول تحديث الصفحة.';
-                status.textContent = message;
-                customerStatus.textContent = message;
-                status.hidden = customerStatus.hidden = false;
-                return;
-            }
+            if (status) status.hidden = true;
+            if (customerStatus) customerStatus.hidden = true;
+            if (!supabaseClient) return;
 
             const [promotionsResult, branchesResult, linksResult] = await Promise.all([
                 supabaseClient.from('promotions').select('*').order('end_date', { ascending: true }),
@@ -871,12 +917,7 @@
             ]);
             const failedResult = [promotionsResult, branchesResult, linksResult].find(result => result.error);
             if (failedResult) {
-                const error = failedResult.error;
-                console.error('تعذر تحميل العروض والفروع من Supabase:', error);
-                const message = `تعذر تحميل العروض من Supabase: ${error.message}`;
-                status.textContent = message;
-                customerStatus.textContent = message;
-                status.hidden = customerStatus.hidden = false;
+                console.error('تعذر تحميل العروض والفروع من Supabase:', failedResult.error);
                 return;
             }
 
@@ -936,6 +977,7 @@
         function renderCustomerOffers() {
             const offers = getActiveOffers();
             const section = document.getElementById('customer-offers');
+            if (!section) return;
             section.hidden = offers.length === 0;
             const items = offers.map(offer => `
                 <span class="offer-ticker-item" role="listitem">
@@ -945,15 +987,19 @@
                     <span class="offer-ticker-separator" aria-hidden="true">✦</span>
                 </span>
             `).join('');
-            document.getElementById('customer-offers-list').innerHTML = offers.length ? `
-                <div class="offer-ticker-group" role="list">${items}</div>
-                <div class="offer-ticker-group" aria-hidden="true">${items}</div>
-            ` : '';
+            const listEl = document.getElementById('customer-offers-list');
+            if (listEl) {
+                listEl.innerHTML = offers.length ? `
+                    <div class="offer-ticker-group" role="list">${items}</div>
+                    <div class="offer-ticker-group" aria-hidden="true">${items}</div>
+                ` : '';
+            }
             scheduleOfferExpiryRefresh();
         }
 
         function renderOfferBranchOptions(selectedIds = []) {
             const select = document.getElementById('offer-branches');
+            if (!select) return;
             select.innerHTML = promotionBranches.map(branch => `
                 <option value="${escapeHTML(branch.id)}">${escapeHTML(branch.name)}</option>
             `).join('');
@@ -976,28 +1022,35 @@
 
         function selectBranch(branch) {
             currentBranch = branch;
-            document.getElementById('selected-branch-badge').innerText = `الفرع: ${branch}`;
-            document.getElementById('branch-modal').style.display = 'none';
+            const badge = document.getElementById('selected-branch-badge');
+            if (badge) badge.innerText = `الفرع: ${branch}`;
+            const modal = document.getElementById('branch-modal');
+            if (modal) modal.style.display = 'none';
             renderMenu();
             renderCustomerOffers();
         }
 
         function renderMenu() {
-            menuData = JSON.parse(localStorage.getItem('shawarmat_menu')) || defaultMenu;
             const categories = getCategories();
-            const visibleItems = menuData.filter(item => !item.branch || item.branch === currentBranch || item.branch === 'all');
-            document.getElementById('customer-category-nav').innerHTML = categories.map(category => `
-                <button class="category-shortcut" type="button" data-category-id="${escapeHTML(category.id)}"
-                    aria-label="انتقل إلى قسم ${escapeHTML(category.name)}">
-                    <span class="category-shortcut-icon"><i class="fas ${escapeHTML(category.icon)}"></i></span>
-                    <span class="category-shortcut-label">${escapeHTML(category.name)}</span>
-                </button>
-            `).join('');
-            document.getElementById('customer-menu-sections').innerHTML = categories.map(category => {
+            const visibleItems = menuData.filter(item => !item.branch || item.branch === currentBranch || item.branch === 'all' || item.branch === 'مشترك بين الفرعين');
+            const navEl = document.getElementById('customer-category-nav');
+            if (navEl) {
+                navEl.innerHTML = categories.map(category => `
+                    <button class="category-shortcut" type="button" data-category-id="${escapeHTML(category.id)}"
+                        aria-label="انتقل إلى قسم ${escapeHTML(category.name)}">
+                        <span class="category-shortcut-icon"><i class="fas ${escapeHTML(category.icon)}"></i></span>
+                        <span class="category-shortcut-label">${escapeHTML(category.name)}</span>
+                    </button>
+                `).join('');
+            }
+            const sectionsEl = document.getElementById('customer-menu-sections');
+            if (!sectionsEl) return;
+
+            sectionsEl.innerHTML = categories.map(category => {
                 const categoryItems = visibleItems.filter(item => getCategoryForItem(item, categories)?.id === category.id);
                 const cards = categoryItems.map(item => {
                 let optionsHTML = '';
-                if (item.options.length > 1) {
+                if (item.options && item.options.length > 1) {
                     item.options.forEach((opt, index) => {
                         optionsHTML += `
                             <label class="option-label">
@@ -1010,12 +1063,13 @@
                         `;
                     });
                 }
-                const displayedOptions = item.options.length > 1 ? optionsHTML : `<div class="price">${escapeHTML(item.options[0].price)} ريال</div>`;
+                const firstOpt = item.options && item.options[0] ? item.options[0] : { price: 0, cal: '500' };
+                const displayedOptions = item.options && item.options.length > 1 ? optionsHTML : `<div class="price">${escapeHTML(firstOpt.price)} ريال</div>`;
 
                 return `
                     <div class="menu-card">
                         <div class="card-img-container">
-                            <span class="calories-badge"><i class="fas fa-fire"></i> ${escapeHTML(item.options[0].cal)} سعرة</span>
+                            <span class="calories-badge"><i class="fas fa-fire"></i> ${escapeHTML(firstOpt.cal || '500')} سعرة</span>
                             <img src="${escapeHTML(item.img)}" alt="${escapeHTML(item.name)}">
                         </div>
                         <div class="card-content">
@@ -1024,12 +1078,12 @@
                             <div class="quantity-control">
                                 <span style="font-size: 0.85rem; color: var(--text-muted);">الكمية:</span>
                                 <div style="display: flex; align-items: center; gap: 5px;">
-                                    <button class="qty-btn" onclick="changeQty(${item.id}, -1)">-</button>
+                                    <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
                                     <input type="text" id="qty-${item.id}" class="qty-input" value="1" readonly>
-                                    <button class="qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+                                    <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
                                 </div>
                             </div>
-                            <button class="add-to-cart-btn" onclick="addToCart(${item.id})">
+                            <button class="add-to-cart-btn" onclick="addToCart('${item.id}')">
                                 <i class="fas fa-cart-plus"></i> أضف للسلة
                             </button>
                         </div>
@@ -1048,32 +1102,37 @@
 
         function changeQty(itemId, val) {
             const qtyInput = document.getElementById(`qty-${itemId}`);
+            if (!qtyInput) return;
             let currentVal = parseInt(qtyInput.value) + val;
             if (currentVal < 1) currentVal = 1;
             qtyInput.value = currentVal;
         }
 
         function addToCart(itemId) {
-            const item = menuData.find(i => i.id === itemId);
+            const item = menuData.find(i => String(i.id) === String(itemId));
+            if (!item) return;
             const radios = document.getElementsByName(`item-${itemId}`);
             let selectedIndex = 0;
-            if (item.options.length > 1) {
+            if (item.options && item.options.length > 1) {
                 radios.forEach((r, idx) => { if (r.checked) selectedIndex = idx; });
             }
 
-            const selectedOpt = item.options[selectedIndex];
-            const quantity = parseInt(document.getElementById(`qty-${itemId}`).value);
-            const cartItemName = item.options.length === 1 ? item.name : `${item.name} (${selectedOpt.label})`;
+            const selectedOpt = item.options && item.options[selectedIndex] ? item.options[selectedIndex] : { price: 0, label: '' };
+            const qtyInput = document.getElementById(`qty-${itemId}`);
+            const quantity = qtyInput ? parseInt(qtyInput.value) : 1;
+            const cartItemName = (!item.options || item.options.length === 1) ? item.name : `${item.name} (${selectedOpt.label})`;
 
             cart.push({ name: cartItemName, price: selectedOpt.price, quantity: quantity });
             updateCartCount();
             showCartFeedback(quantity, item.name);
-            document.getElementById(`qty-${itemId}`).value = 1;
+            if (qtyInput) qtyInput.value = 1;
         }
 
         function showCartFeedback(quantity, itemName) {
             const feedback = document.getElementById('cart-feedback');
-            document.getElementById('cart-feedback-message').textContent = `تمت إضافة ${quantity} × ${itemName} إلى السلة.`;
+            const msg = document.getElementById('cart-feedback-message');
+            if (!feedback || !msg) return;
+            msg.textContent = `تمت إضافة ${quantity} × ${itemName} إلى السلة.`;
             if (!feedback.classList.contains('is-visible')) {
                 feedback.classList.add('is-visible');
                 cartFeedbackTimer = setTimeout(dismissCartFeedback, 1000);
@@ -1083,11 +1142,13 @@
         function dismissCartFeedback() {
             clearTimeout(cartFeedbackTimer);
             cartFeedbackTimer = null;
-            document.getElementById('cart-feedback').classList.remove('is-visible');
+            const feedback = document.getElementById('cart-feedback');
+            if (feedback) feedback.classList.remove('is-visible');
         }
 
         function updateCartCount() {
-            document.getElementById('cart-count').innerText = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const countEl = document.getElementById('cart-count');
+            if (countEl) countEl.innerText = cart.reduce((sum, item) => sum + item.quantity, 0);
         }
 
         function getCartSubtotal() {
@@ -1095,25 +1156,31 @@
         }
 
         function updateFulfillmentFields() {
-            const isDelivery = document.getElementById('order-fulfillment').value === 'delivery';
+            const fulfillmentEl = document.getElementById('order-fulfillment');
+            if (!fulfillmentEl) return;
+            const isDelivery = fulfillmentEl.value === 'delivery';
             const addressGroup = document.getElementById('delivery-address-group');
             const addressInput = document.getElementById('client-address');
-            addressGroup.hidden = !isDelivery;
-            addressInput.required = isDelivery;
-            document.getElementById('delivery-fee-row').hidden = !isDelivery;
+            if (addressGroup) addressGroup.hidden = !isDelivery;
+            if (addressInput) addressInput.required = isDelivery;
+            const feeRow = document.getElementById('delivery-fee-row');
+            if (feeRow) feeRow.hidden = !isDelivery;
             updateCartTotal();
         }
 
         function updateCartTotal() {
-            const isDelivery = document.getElementById('order-fulfillment').value === 'delivery';
+            const fulfillmentEl = document.getElementById('order-fulfillment');
+            const isDelivery = fulfillmentEl ? fulfillmentEl.value === 'delivery' : false;
             const deliveryFee = isDelivery ? 10 : 0;
-            document.getElementById('cart-total-price').innerText = `${getCartSubtotal() + deliveryFee} ريال`;
+            const totalEl = document.getElementById('cart-total-price');
+            if (totalEl) totalEl.innerText = `${getCartSubtotal() + deliveryFee} ريال`;
         }
 
         function openCartModal() {
             dismissCartFeedback();
             const modal = document.getElementById('cart-modal');
             const listContainer = document.getElementById('cart-items-list');
+            if (!modal || !listContainer) return;
             
             listContainer.innerHTML = '';
 
@@ -1138,17 +1205,28 @@
             modal.style.display = 'flex';
         }
 
-        function closeCartModal() { document.getElementById('cart-modal').style.display = 'none'; }
-        function removeFromCart(index) { cart.splice(index, 1); updateCartCount(); openCartModal(); }
+        function closeCartModal() { 
+            const modal = document.getElementById('cart-modal');
+            if (modal) modal.style.display = 'none'; 
+        }
 
-        // إرسال الطلب وحفظه في جدول orders في Supabase
+        function removeFromCart(index) { 
+            cart.splice(index, 1); 
+            updateCartCount(); 
+            openCartModal(); 
+        }
+
         async function sendToWhatsApp() {
             if (cart.length === 0) { alert('السلة فارغة!'); return; }
-            const name = document.getElementById('client-name').value.trim();
-            const phone = document.getElementById('client-phone').value.trim();
-            const fulfillment = document.getElementById('order-fulfillment').value;
+            const nameEl = document.getElementById('client-name');
+            const phoneEl = document.getElementById('client-phone');
+            const fulfillmentEl = document.getElementById('order-fulfillment');
+            const name = nameEl ? nameEl.value.trim() : '';
+            const phone = phoneEl ? phoneEl.value.trim() : '';
+            const fulfillment = fulfillmentEl ? fulfillmentEl.value : 'pickup';
             const isDelivery = fulfillment === 'delivery';
-            const address = isDelivery ? document.getElementById('client-address').value.trim() : '';
+            const addressEl = document.getElementById('client-address');
+            const address = isDelivery && addressEl ? addressEl.value.trim() : '';
             const deliveryFee = isDelivery ? 10 : 0;
 
             if (!name || !phone) { alert('يرجى كتابة الاسم ورقم الجوال.'); return; }
@@ -1197,14 +1275,18 @@
 
         function checkRoute() {
             if (window.location.hash === '#admin') {
-                document.getElementById('customer-view').style.display = 'none';
-                document.getElementById('admin-wrapper').style.display = 'block';
+                const customerView = document.getElementById('customer-view');
+                const adminWrapper = document.getElementById('admin-wrapper');
+                if (customerView) customerView.style.display = 'none';
+                if (adminWrapper) adminWrapper.style.display = 'block';
                 updateAdminPanel();
                 renderMenuManager();
             } else {
-                document.getElementById('customer-view').style.display = 'block';
-                document.getElementById('admin-wrapper').style.display = 'none';
-                renderMenu();
+                const customerView = document.getElementById('customer-view');
+                const adminWrapper = document.getElementById('admin-wrapper');
+                if (customerView) customerView.style.display = 'block';
+                if (adminWrapper) adminWrapper.style.display = 'none';
+                loadMenuFromSupabase();
             }
         }
 
@@ -1212,12 +1294,14 @@
 
         function toggleSidebar() {
             const isOpen = document.body.classList.toggle('sidebar-open');
-            document.querySelector('.sidebar-toggle').setAttribute('aria-expanded', String(isOpen));
+            const toggleBtn = document.querySelector('.sidebar-toggle');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(isOpen));
         }
 
         function closeSidebar() {
             document.body.classList.remove('sidebar-open');
-            document.querySelector('.sidebar-toggle').setAttribute('aria-expanded', 'false');
+            const toggleBtn = document.querySelector('.sidebar-toggle');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
         }
 
         function setActiveSidebarLink(link, event) {
@@ -1240,24 +1324,31 @@
         }
 
         function updateItemOptionFields() {
-            const isFood = getCategoryKind(document.getElementById('new-item-type').value) === 'food';
-            const hasCheeseOptions = isFood && document.getElementById('new-item-option-mode').value === 'cheese';
-            document.getElementById('new-item-option-mode-group').hidden = !isFood;
-            document.getElementById('new-item-cheese-price-group').hidden = !hasCheeseOptions;
-            document.getElementById('new-item-price-label').textContent = hasCheeseOptions ? 'السعر بدون جبنة (ريال)' : 'السعر (ريال)';
+            const typeSelect = document.getElementById('new-item-type');
+            const modeSelect = document.getElementById('new-item-option-mode');
+            if (!typeSelect || !modeSelect) return;
+            const isFood = getCategoryKind(typeSelect.value) === 'food';
+            const hasCheeseOptions = isFood && modeSelect.value === 'cheese';
+            const modeGroup = document.getElementById('new-item-option-mode-group');
+            const cheeseGroup = document.getElementById('new-item-cheese-price-group');
+            const priceLabel = document.getElementById('new-item-price-label');
+            if (modeGroup) modeGroup.hidden = !isFood;
+            if (cheeseGroup) cheeseGroup.hidden = !hasCheeseOptions;
+            if (priceLabel) priceLabel.textContent = hasCheeseOptions ? 'السعر بدون جبنة (ريال)' : 'السعر (ريال)';
         }
 
         function updateEditOptionFields() {
-            const isFood = getCategoryKind(document.getElementById('edit-item-type').value) === 'food';
-            const hasCheeseOptions = isFood && document.getElementById('edit-item-option-mode').value === 'cheese';
-            document.getElementById('edit-item-option-mode-group').hidden = !isFood;
-            document.getElementById('edit-item-cheese-price-group').hidden = !hasCheeseOptions;
-            document.getElementById('edit-item-price-label').textContent = hasCheeseOptions ? 'السعر بدون جبنة (ريال)' : 'السعر (ريال)';
-        }
-
-        function getMenuData() {
-            const savedMenu = localStorage.getItem('shawarmat_menu');
-            return savedMenu ? JSON.parse(savedMenu) : JSON.parse(JSON.stringify(defaultMenu));
+            const typeSelect = document.getElementById('edit-item-type');
+            const modeSelect = document.getElementById('edit-item-option-mode');
+            if (!typeSelect || !modeSelect) return;
+            const isFood = getCategoryKind(typeSelect.value) === 'food';
+            const hasCheeseOptions = isFood && modeSelect.value === 'cheese';
+            const modeGroup = document.getElementById('edit-item-option-mode-group');
+            const cheeseGroup = document.getElementById('edit-item-cheese-price-group');
+            const priceLabel = document.getElementById('edit-item-price-label');
+            if (modeGroup) modeGroup.hidden = !isFood;
+            if (cheeseGroup) cheeseGroup.hidden = !hasCheeseOptions;
+            if (priceLabel) priceLabel.textContent = hasCheeseOptions ? 'السعر بدون جبنة (ريال)' : 'السعر (ريال)';
         }
 
         function escapeHTML(value) {
@@ -1268,18 +1359,18 @@
 
         function renderMenuManager() {
             const tableBody = document.getElementById('menu-items-table-body');
-            const menuData = getMenuData();
+            if (!tableBody) return;
             const categories = getCategories();
-            if (menuData.length === 0) {
+            if (!menuData || menuData.length === 0) {
                 tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">لا توجد أصناف في المنيو</td></tr>';
                 return;
             }
 
             tableBody.innerHTML = menuData.map(item => {
-                const prices = item.options.map(option => {
+                const prices = item.options ? item.options.map(option => {
                     const label = option.label ? `${option.label}: ` : '';
                     return `${label}${Number(option.price).toLocaleString('ar-SA')} ريال`;
-                }).join(' / ');
+                }).join(' / ') : '';
                 const branch = item.branch || 'مشترك بين الفرعين';
                 const type = getCategoryForItem(item, categories)?.name || 'غير مصنف';
                 return `
@@ -1301,7 +1392,9 @@
 
         function renderCategoryManager() {
             const categories = getCategories();
-            document.getElementById('categories-management-list').innerHTML = categories.map(category => `
+            const listEl = document.getElementById('categories-management-list');
+            if (!listEl) return;
+            listEl.innerHTML = categories.map(category => `
                 <div class="category-admin-row">
                     <span class="category-admin-label"><i class="fas ${escapeHTML(category.icon)}"></i>${escapeHTML(category.name)}</span>
                     <button class="item-action-btn item-delete-btn" type="button" data-delete-category="${escapeHTML(category.id)}"
@@ -1322,6 +1415,7 @@
         function addCategory(event) {
             event.preventDefault();
             const nameInput = document.getElementById('new-category-name');
+            if (!nameInput) return;
             const name = nameInput.value.trim();
             const categories = getCategories();
             if (!name) return;
@@ -1329,12 +1423,13 @@
                 alert('يوجد قسم بهذا الاسم بالفعل.');
                 return;
             }
+            const iconSelect = document.getElementById('new-category-icon');
+            const kindSelect = document.getElementById('new-category-kind');
             categories.push({
                 id: `category-${Date.now()}`,
                 name,
-                icon: categoryIcons.includes(document.getElementById('new-category-icon').value)
-                    ? document.getElementById('new-category-icon').value : 'fa-star',
-                kind: document.getElementById('new-category-kind').value === 'drink' ? 'drink' : 'food'
+                icon: iconSelect && categoryIcons.includes(iconSelect.value) ? iconSelect.value : 'fa-star',
+                kind: kindSelect && kindSelect.value === 'drink' ? 'drink' : 'food'
             });
             try {
                 localStorage.setItem('shawarmat_categories', JSON.stringify(categories));
@@ -1356,7 +1451,6 @@
             if (!category) return;
             const remainingCategories = categories.filter(item => item.id !== categoryId);
             const targetCategory = remainingCategories.find(item => item.kind === category.kind) || remainingCategories[0];
-            const menuData = getMenuData();
             const affectedItems = menuData.filter(item => getCategoryForItem(item, categories)?.id === categoryId);
             const message = affectedItems.length
                 ? `سيتم نقل ${affectedItems.length} صنف إلى قسم "${targetCategory.name}" قبل حذف "${category.name}". هل تريد المتابعة؟`
@@ -1367,7 +1461,6 @@
                 item.type = targetCategory.kind;
             });
             try {
-                localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
                 localStorage.setItem('shawarmat_categories', JSON.stringify(remainingCategories));
                 refreshCategoryViews();
             } catch (error) {
@@ -1377,7 +1470,9 @@
         }
 
         function renderOffersManager() {
-            document.getElementById('offers-management-list').innerHTML = promotionsData.length ? promotionsData.map(offer => {
+            const listEl = document.getElementById('offers-management-list');
+            if (!listEl) return;
+            listEl.innerHTML = promotionsData.length ? promotionsData.map(offer => {
                 const now = Date.now();
                 const isExpired = offer.end_date && new Date(offer.end_date).getTime() < now;
                 const startsLater = offer.start_date && new Date(offer.start_date).getTime() > now;
@@ -1410,11 +1505,16 @@
         }
 
         function resetOfferForm() {
-            document.getElementById('offer-form').reset();
-            document.getElementById('offer-edit-id').value = '';
-            document.getElementById('offer-form-heading').textContent = 'إضافة عرض جديد';
-            document.getElementById('offer-submit-button').textContent = 'إضافة العرض';
-            document.getElementById('offer-cancel-edit').hidden = true;
+            const form = document.getElementById('offer-form');
+            if (form) form.reset();
+            const editId = document.getElementById('offer-edit-id');
+            if (editId) editId.value = '';
+            const heading = document.getElementById('offer-form-heading');
+            if (heading) heading.textContent = 'إضافة عرض جديد';
+            const submitBtn = document.getElementById('offer-submit-button');
+            if (submitBtn) submitBtn.textContent = 'إضافة العرض';
+            const cancelBtn = document.getElementById('offer-cancel-edit');
+            if (cancelBtn) cancelBtn.hidden = true;
             renderOfferBranchOptions();
         }
 
@@ -1450,7 +1550,9 @@
             const startDate = document.getElementById('offer-start-date').value;
             const endDate = document.getElementById('offer-end-date').value;
             const editId = document.getElementById('offer-edit-id').value;
-            const selectedBranchIds = [...document.getElementById('offer-branches').selectedOptions].map(option => option.value);
+            const branchesSelect = document.getElementById('offer-branches');
+            const selectedBranchIds = branchesSelect ? [...branchesSelect.selectedOptions].map(option => option.value) : [];
+            
             if (!title || !endDate || !Number.isFinite(discountValue) || discountValue <= 0) {
                 alert('يرجى إدخال عنوان العرض وقيمة خصم صحيحة وتاريخ انتهاء.');
                 return;
@@ -1471,8 +1573,7 @@
                 return;
             }
             if (!supabaseClient) {
-                status.textContent = 'تعذر الاتصال بـ Supabase. تحقق من اتصال الإنترنت وحاول مرة أخرى.';
-                status.hidden = false;
+                if (status) { status.textContent = 'تعذر الاتصال بـ Supabase.'; status.hidden = false; }
                 return;
             }
 
@@ -1489,7 +1590,7 @@
                 end_date: toLocalDateTime(endDate, true),
                 is_active: document.getElementById('offer-is-active').checked
             };
-            status.hidden = true;
+            if (status) status.hidden = true;
             try {
                 const result = existingOffer
                     ? await supabaseClient.from('promotions').update(promotion).eq('id', editId).select('id').single()
@@ -1509,9 +1610,8 @@
                 alert(existingOffer ? 'تم حفظ تعديلات العرض بنجاح.' : 'تمت إضافة العرض بنجاح.');
             } catch (error) {
                 console.error('تعذر حفظ العرض:', error);
-                status.textContent = `تعذر حفظ العرض في Supabase: ${error.message || 'خطأ غير معروف'}`;
-                status.hidden = false;
-                alert(status.textContent);
+                if (status) { status.textContent = `تعذر حفظ العرض: ${error.message}`; status.hidden = false; }
+                alert('تعذر حفظ العرض.');
             }
         }
 
@@ -1519,12 +1619,8 @@
             const offer = promotionsData.find(item => String(item.id) === String(offerId));
             if (!offer || !confirm(`هل أنت متأكد من حذف العرض "${offer.title}"؟`)) return;
             const status = document.getElementById('offers-database-status');
-            status.hidden = true;
-            if (!supabaseClient) {
-                status.textContent = 'تعذر الاتصال بـ Supabase. تحقق من اتصال الإنترنت وحاول مرة أخرى.';
-                status.hidden = false;
-                return;
-            }
+            if (status) status.hidden = true;
+            if (!supabaseClient) return;
             try {
                 const result = await supabaseClient.from('promotions').delete().eq('id', offerId);
                 if (result.error) throw result.error;
@@ -1532,23 +1628,21 @@
                 await loadPromotions();
             } catch (error) {
                 console.error('تعذر حذف العرض:', error);
-                status.textContent = `تعذر حذف العرض من Supabase: ${error.message || 'خطأ غير معروف'}`;
-                status.hidden = false;
-                alert(status.textContent);
+                alert('تعذر حذف العرض.');
             }
         }
 
         function openEditItemDialog(itemId) {
-            const item = getMenuData().find(menuItem => String(menuItem.id) === String(itemId));
+            const item = menuData.find(menuItem => String(menuItem.id) === String(itemId));
             if (!item) return;
             renderCategoryOptions();
             document.getElementById('edit-item-id').value = item.id;
             document.getElementById('edit-item-name').value = item.name;
-            document.getElementById('edit-item-type').value = getCategoryForItem(item)?.id || getCategories()[0]?.id || '';
+            document.getElementById('edit-item-type').value = item.categoryId || getCategories()[0]?.id || '';
             document.getElementById('edit-item-branch').value = item.branch || 'all';
-            document.getElementById('edit-item-option-mode').value = getCategoryKind(document.getElementById('edit-item-type').value) === 'food' && item.options.length > 1 ? 'cheese' : 'single';
-            const noCheeseOption = item.options.find(option => option.label === 'بدون جبنة' || option.label === 'بدون جبن') || item.options[0];
-            const cheeseOption = item.options.find(option => option.label === 'بالجبنة' || option.label === 'بالجبن') || item.options[1];
+            document.getElementById('edit-item-option-mode').value = (item.options && item.options.length > 1) ? 'cheese' : 'single';
+            const noCheeseOption = item.options ? (item.options.find(option => option.label === 'بدون جبنة' || option.label === 'بدون جبن') || item.options[0]) : { price: 0, cal: '500' };
+            const cheeseOption = item.options ? (item.options.find(option => option.label === 'بالجبنة' || option.label === 'بالجبن') || item.options[1]) : null;
             document.getElementById('edit-item-price').value = noCheeseOption.price;
             document.getElementById('edit-item-cheese-price').value = cheeseOption?.price ?? '';
             document.getElementById('edit-item-cal').value = noCheeseOption.cal ?? '';
@@ -1561,44 +1655,84 @@
 
         function closeEditItemDialog() { document.getElementById('edit-item-dialog').close(); }
 
+        // تعديل الصنف وحفظه مباشرة في Supabase
         async function saveEditedItem(event) {
             event.preventDefault();
             const itemId = document.getElementById('edit-item-id').value;
             const name = document.getElementById('edit-item-name').value.trim();
             const categoryId = document.getElementById('edit-item-type').value;
-            const type = getCategoryKind(categoryId);
             const branchValue = document.getElementById('edit-item-branch').value;
-            const hasCheeseOptions = getCategoryKind(categoryId) === 'food' && document.getElementById('edit-item-option-mode').value === 'cheese';
+            const isFood = getCategoryKind(categoryId) === 'food';
+            const modeSelect = document.getElementById('edit-item-option-mode');
+            const hasCheeseOptions = isFood && modeSelect && modeSelect.value === 'cheese';
             const price = parseFloat(document.getElementById('edit-item-price').value);
             const cheesePrice = parseFloat(document.getElementById('edit-item-cheese-price').value);
             const cal = document.getElementById('edit-item-cal').value.trim() || '500';
             const imageFile = document.getElementById('edit-item-image').files[0];
 
-            const menuData = getMenuData();
             const item = menuData.find(menuItem => String(menuItem.id) === String(itemId));
             if (!item) return;
 
-            item.name = name;
-            item.type = type;
-            item.categoryId = categoryId;
-            item.branch = branchValue === 'all' ? undefined : branchValue;
-            item.options = hasCheeseOptions ? [{ label: 'بدون جبنة', price, cal }, { label: 'بالجبنة', price: cheesePrice, cal }] : [{ label: type === 'drink' ? 'عادي' : '', price, cal }];
-            if (imageFile) item.img = await compressImage(imageFile);
+            let imageUrl = item.img;
+            if (imageFile) {
+                imageUrl = await compressImage(imageFile);
+            }
 
-            localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
-            closeEditItemDialog();
-            renderMenu();
-            renderMenuManager();
-            alert('تم حفظ تعديلات الصنف بنجاح.');
+            const optionsArr = hasCheeseOptions ? [
+                { label: 'بدون جبنة', price, cal },
+                { label: 'بالجبنة', price: cheesePrice, cal }
+            ] : [
+                { label: '', price, cal }
+            ];
+
+            if (!supabaseClient) {
+                alert('غير متصل بقاعدة البيانات!');
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('products')
+                .update({
+                    category_id: categoryId,
+                    name: name,
+                    description: JSON.stringify(optionsArr),
+                    base_price: price,
+                    image_url: imageUrl
+                })
+                .eq('id', itemId);
+
+            if (error) {
+                console.error('تعذر حفظ التعديلات:', error);
+                alert('تعذر حفظ التعديلات في قاعدة البيانات.');
+            } else {
+                closeEditItemDialog();
+                await loadMenuFromSupabase();
+                alert('تم حفظ تعديلات الصنف وتحديثه للجميع بنجاح.');
+            }
         }
 
-        function deleteMenuItem(itemId) {
-            const menuData = getMenuData();
+        // حذف الصنف من Supabase
+        async function deleteMenuItem(itemId) {
             const item = menuData.find(menuItem => String(menuItem.id) === String(itemId));
             if (!item || !confirm(`هل أنت متأكد من حذف "${item.name}"؟`)) return;
-            localStorage.setItem('shawarmat_menu', JSON.stringify(menuData.filter(menuItem => String(menuItem.id) !== String(itemId))));
-            renderMenu();
-            renderMenuManager();
+
+            if (!supabaseClient) {
+                alert('غير متصل بقاعدة البيانات!');
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('products')
+                .delete()
+                .eq('id', itemId);
+
+            if (error) {
+                console.error('تعذر حذف الصنف:', error);
+                alert('تعذر حذف الصنف من قاعدة البيانات.');
+            } else {
+                await loadMenuFromSupabase();
+                alert('تم حذف الصنف بنجاح.');
+            }
         }
 
         const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -1613,6 +1747,7 @@
         function setupSalesFilters(orders) {
             const monthSelect = document.getElementById('sales-month');
             const yearSelect = document.getElementById('sales-year');
+            if (!monthSelect || !yearSelect) return;
             monthSelect.innerHTML = monthNames.map((month, index) => `<option value="${index}">${month}</option>`).join('');
             const currentYear = new Date().getFullYear();
             const years = new Set([currentYear]);
@@ -1626,9 +1761,13 @@
 
         function renderSalesChart() {
             const orders = JSON.parse(localStorage.getItem('shawarmat_orders')) || [];
-            const month = Number(document.getElementById('sales-month').value);
-            const year = Number(document.getElementById('sales-year').value);
+            const monthSelect = document.getElementById('sales-month');
+            const yearSelect = document.getElementById('sales-year');
+            if (!monthSelect || !yearSelect) return;
+            const month = Number(monthSelect.value);
+            const year = Number(yearSelect.value);
             const canvas = document.getElementById('sales-chart');
+            if (!canvas) return;
             const context = canvas.getContext('2d');
             const rect = canvas.getBoundingClientRect();
             const ratio = window.devicePixelRatio || 1;
@@ -1649,7 +1788,8 @@
             });
 
             drawSalesChart(context, rect.width, rect.height, weeklySales);
-            document.getElementById('sales-chart-summary').textContent = `إجمالي مبيعات ${monthNames[month]} ${year}: ${monthlySales.toLocaleString('ar-SA')} ريال`;
+            const summaryEl = document.getElementById('sales-chart-summary');
+            if (summaryEl) summaryEl.textContent = `إجمالي مبيعات ${monthNames[month]} ${year}: ${monthlySales.toLocaleString('ar-SA')} ريال`;
         }
 
         function drawSalesChart(context, width, height, values) {
@@ -1691,7 +1831,9 @@
         function renderOrdersTable() {
             const orders = JSON.parse(localStorage.getItem('shawarmat_orders')) || [];
             const tableBody = document.getElementById('orders-table-body');
-            const query = normalizeInvoiceNumber(document.getElementById('order-search').value);
+            const searchInput = document.getElementById('order-search');
+            if (!tableBody || !searchInput) return;
+            const query = normalizeInvoiceNumber(searchInput.value);
             const filteredOrders = query ? orders.filter(order => normalizeInvoiceNumber(String(order.id)).includes(query)) : orders;
 
             if (filteredOrders.length === 0) {
@@ -1717,9 +1859,11 @@
 
         function updateAdminPanel() {
             const ordersHistory = JSON.parse(localStorage.getItem('shawarmat_orders')) || [];
-            document.getElementById('total-orders-count').innerText = ordersHistory.length;
+            const countEl = document.getElementById('total-orders-count');
+            const salesEl = document.getElementById('total-sales');
+            if (countEl) countEl.innerText = ordersHistory.length;
             const totalRevenue = ordersHistory.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
-            document.getElementById('total-sales').innerText = `${totalRevenue.toLocaleString('ar-SA')} ريال`;
+            if (salesEl) salesEl.innerText = `${totalRevenue.toLocaleString('ar-SA')} ريال`;
             setupSalesFilters(ordersHistory);
             renderSalesChart();
             renderOrdersTable();
@@ -1740,75 +1884,138 @@
             } finally { URL.revokeObjectURL(imageUrl); }
         }
 
+        // إضافة صنف جديد وحفظه في جدول products في Supabase
         async function addNewItem() {
-            const name = document.getElementById('new-item-name').value.trim();
-            const categoryId = document.getElementById('new-item-type').value;
+            const nameEl = document.getElementById('new-item-name');
+            const typeSelect = document.getElementById('new-item-type');
+            const modeSelect = document.getElementById('new-item-option-mode');
+            const branchSelect = document.getElementById('new-item-branch');
+            const priceEl = document.getElementById('new-item-price');
+            const cheesePriceEl = document.getElementById('new-item-cheese-price');
+            const calEl = document.getElementById('new-item-cal');
+            const imageInput = document.getElementById('new-item-image');
+            const status = document.getElementById('products-database-status');
+            if (status) status.hidden = true;
+
+            const name = nameEl ? nameEl.value.trim() : '';
+            const categoryId = typeSelect ? typeSelect.value : 'food';
             const category = getCategories().find(item => item.id === categoryId);
             if (!category) { alert('يرجى اختيار قسم صالح للصنف.'); return; }
-            const type = category.kind;
-            const hasCheeseOptions = type === 'food' && document.getElementById('new-item-option-mode').value === 'cheese';
-            const branchValue = document.getElementById('new-item-branch').value;
-            const branch = branchValue === 'all' ? undefined : branchValue;
-            const price = parseFloat(document.getElementById('new-item-price').value);
-            const cheesePrice = parseFloat(document.getElementById('new-item-cheese-price').value);
-            const cal = document.getElementById('new-item-cal').value.trim() || "500";
-            const imageFile = document.getElementById('new-item-image').files[0];
+            
+            const isFood = getCategoryKind(categoryId) === 'food';
+            const hasCheeseOptions = isFood && modeSelect && modeSelect.value === 'cheese';
+            const branchValue = branchSelect ? branchSelect.value : 'all';
+            const branch = branchValue === 'all' ? 'all' : branchValue;
+            const price = priceEl ? parseFloat(priceEl.value) : NaN;
+            const cheesePrice = cheesePriceEl ? parseFloat(cheesePriceEl.value) : NaN;
+            const cal = calEl && calEl.value.trim() ? calEl.value.trim() : "500";
+            const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
 
             if (!name || !Number.isFinite(price) || price <= 0) { alert('يرجى إدخال اسم الصنف وسعر صحيح.'); return; }
+            if (hasCheeseOptions && (!Number.isFinite(cheesePrice) || cheesePrice <= 0)) { alert('يرجى إدخال سعر صحيح للصنف بالجبنة.'); return; }
             if (!imageFile) { alert('يرجى اختيار صورة للصنف.'); return; }
 
-            const menuData = getMenuData();
             const image = await compressImage(imageFile);
-            menuData.push({
-                id: Date.now(), name, type, categoryId: category.id, branch, img: image,
-                options: hasCheeseOptions ? [{ label: 'بدون جبنة', price, cal }, { label: 'بالجبنة', price: cheesePrice, cal }] : [{ label: '', price, cal }]
-            });
+            const optionsArr = hasCheeseOptions ? [
+                { label: 'بدون جبنة', price, cal },
+                { label: 'بالجبنة', price: cheesePrice, cal }
+            ] : [
+                { label: '', price, cal }
+            ];
 
-            localStorage.setItem('shawarmat_menu', JSON.stringify(menuData));
-            renderMenu();
-            renderMenuManager();
-            alert('تمت إضافة الصنف بنجاح.');
+            if (!supabaseClient) {
+                alert('غير متصل بقاعدة البيانات!');
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('products')
+                .insert([
+                    {
+                        category_id: categoryId,
+                        name: name,
+                        description: JSON.stringify(optionsArr),
+                        base_price: price,
+                        image_url: image
+                    }
+                ]);
+
+            if (error) {
+                console.error('تعذر حفظ الصنف في Supabase:', error);
+                if (status) { status.textContent = `تعذر حفظ الصنف: ${error.message}`; status.hidden = false; }
+                alert('تعذر حفظ الصنف في قاعدة البيانات.');
+            } else {
+                alert('تمت إضافة الصنف بنجاح وحفظه في قاعدة البيانات ليظهر للجميع فوراً!');
+                if (nameEl) nameEl.value = '';
+                if (priceEl) priceEl.value = '';
+                if (cheesePriceEl) cheesePriceEl.value = '';
+                if (calEl) calEl.value = '';
+                if (imageInput) imageInput.value = '';
+                if (modeSelect) modeSelect.value = 'single';
+                updateItemOptionFields();
+                await loadMenuFromSupabase();
+            }
         }
 
         window.onload = function() {
             renderCategoryOptions();
             updateItemOptionFields();
             checkRoute();
-            renderMenuManager();
             renderCategoryManager();
             renderOfferBranchOptions();
+            
+            loadMenuFromSupabase();
             loadPromotions().catch(error => {
                 console.error('تعذر تحميل العروض من Supabase:', error);
-                const message = `تعذر تحميل العروض من Supabase: ${error.message || 'خطأ في الاتصال'}`;
-                document.getElementById('offers-database-status').textContent = message;
-                document.getElementById('offers-database-status').hidden = false;
-                document.getElementById('customer-offers-error').textContent = message;
-                document.getElementById('customer-offers-error').hidden = false;
             });
-            document.getElementById('customer-category-nav').addEventListener('click', event => {
-                const button = event.target.closest('button[data-category-id]');
-                if (button) scrollToCategory(button.dataset.categoryId);
-            });
-            document.getElementById('category-form').addEventListener('submit', addCategory);
-            document.getElementById('categories-management-list').addEventListener('click', event => {
-                const button = event.target.closest('button[data-delete-category]');
-                if (button) deleteCategory(button.dataset.deleteCategory);
-            });
-            document.getElementById('offer-form').addEventListener('submit', saveOffer);
-            document.getElementById('order-fulfillment').addEventListener('change', updateFulfillmentFields);
-            document.getElementById('offers-management-list').addEventListener('click', event => {
-                const editButton = event.target.closest('button[data-edit-offer]');
-                const deleteButton = event.target.closest('button[data-delete-offer]');
-                if (editButton) editOffer(editButton.dataset.editOffer);
-                if (deleteButton) deleteOffer(deleteButton.dataset.deleteOffer);
-            });
-            document.getElementById('menu-items-table-body').addEventListener('click', event => {
-                const button = event.target.closest('button[data-action]');
-                if (!button) return;
-                if (button.dataset.action === 'edit') openEditItemDialog(button.dataset.itemId);
-                if (button.dataset.action === 'delete') deleteMenuItem(button.dataset.itemId);
-            });
-            document.getElementById('edit-item-form').addEventListener('submit', saveEditedItem);
+
+            const categoryNav = document.getElementById('customer-category-nav');
+            if (categoryNav) {
+                categoryNav.addEventListener('click', event => {
+                    const button = event.target.closest('button[data-category-id]');
+                    if (button) scrollToCategory(button.dataset.categoryId);
+                });
+            }
+
+            const categoryForm = document.getElementById('category-form');
+            if (categoryForm) categoryForm.addEventListener('submit', addCategory);
+
+            const catList = document.getElementById('categories-management-list');
+            if (catList) {
+                catList.addEventListener('click', event => {
+                    const button = event.target.closest('button[data-delete-category]');
+                    if (button) deleteCategory(button.dataset.deleteCategory);
+                });
+            }
+
+            const offerForm = document.getElementById('offer-form');
+            if (offerForm) offerForm.addEventListener('submit', saveOffer);
+
+            const fulfillment = document.getElementById('order-fulfillment');
+            if (fulfillment) fulfillment.addEventListener('change', updateFulfillmentFields);
+
+            const offersList = document.getElementById('offers-management-list');
+            if (offersList) {
+                offersList.addEventListener('click', event => {
+                    const editButton = event.target.closest('button[data-edit-offer]');
+                    const deleteButton = event.target.closest('button[data-delete-offer]');
+                    if (editButton) editOffer(editButton.dataset.editOffer);
+                    if (deleteButton) deleteOffer(deleteButton.dataset.deleteOffer);
+                });
+            }
+
+            const menuTableBody = document.getElementById('menu-items-table-body');
+            if (menuTableBody) {
+                menuTableBody.addEventListener('click', event => {
+                    const button = event.target.closest('button[data-action]');
+                    if (!button) return;
+                    if (button.dataset.action === 'edit') openEditItemDialog(button.dataset.itemId);
+                    if (button.dataset.action === 'delete') deleteMenuItem(button.dataset.itemId);
+                });
+            }
+
+            const editItemForm = document.getElementById('edit-item-form');
+            if (editItemForm) editItemForm.addEventListener('submit', saveEditedItem);
         };
     </script>
 </body>
