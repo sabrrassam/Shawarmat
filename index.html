@@ -101,8 +101,11 @@
         }
         .option-label > div { min-width: 0; }
         .option-label input[type="radio"] { flex: 0 0 auto; accent-color: var(--primary); }
-        .option-label .price { flex: 0 0 auto; white-space: nowrap; }
+        .option-price-group { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; white-space: nowrap; }
         .price { color: var(--accent); font-weight: 700; }
+        .availability-badge { padding: 2px 7px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+        .availability-badge.is-available { color: var(--accent); background: rgba(212,255,63,0.1); }
+        .availability-badge.is-unavailable { color: #ff9a91; background: rgba(227,66,52,0.14); }
 
         .quantity-control {
             display: flex; align-items: center; justify-content: space-between;
@@ -116,6 +119,7 @@
             padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s;
         }
         .add-to-cart-btn:hover { background: var(--primary-dark); }
+        .add-to-cart-btn:disabled, .qty-btn:disabled { cursor: not-allowed; opacity: 0.55; }
 
         .cart-floating {
             position: fixed; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); left: 20px; background: var(--primary); color: white;
@@ -996,9 +1000,8 @@
 
         function renderMenu() {
             const categories = getCategories();
-            // إخفاء الأصناف غير المتوفرة (is_available === false) عن العملاء
             const visibleItems = menuData.filter(item => 
-                (item.is_available !== false) && (!item.branch || item.branch === currentBranch || item.branch === 'all' || item.branch === 'مشترك بين الفرعين')
+                (!item.branch || item.branch === currentBranch || item.branch === 'all' || item.branch === 'مشترك بين الفرعين')
             );
             const navEl = document.getElementById('customer-category-nav');
             if (navEl) {
@@ -1016,22 +1019,29 @@
             sectionsEl.innerHTML = categories.map(category => {
                 const categoryItems = visibleItems.filter(item => getCategoryForItem(item, categories)?.id === category.id);
                 const cards = categoryItems.map(item => {
+                const isAvailable = item.is_available !== false;
+                const availabilityBadge = `<span class="availability-badge ${isAvailable ? 'is-available' : 'is-unavailable'}">${isAvailable ? 'متوفر' : 'غير متوفر'}</span>`;
                 let optionsHTML = '';
                 if (item.options && item.options.length > 1) {
                     item.options.forEach((opt, index) => {
                         optionsHTML += `
                             <label class="option-label">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" name="item-${item.id}" value="${index}" ${index === 0 ? 'checked' : ''}>
+                                    <input type="radio" name="item-${item.id}" value="${index}" ${index === 0 ? 'checked' : ''} ${isAvailable ? '' : 'disabled'}>
                                     <span>${escapeHTML(opt.label)}</span>
                                 </div>
-                                <span class="price">${escapeHTML(opt.price)} ريال</span>
+                                <span class="option-price-group">
+                                    <span class="price">${escapeHTML(opt.price)} ريال</span>
+                                    ${availabilityBadge}
+                                </span>
                             </label>
                         `;
                     });
                 }
                 const firstOpt = item.options && item.options[0] ? item.options[0] : { price: 0, cal: '500' };
-                const displayedOptions = item.options && item.options.length > 1 ? optionsHTML : `<div class="price">${escapeHTML(firstOpt.price)} ريال</div>`;
+                const displayedOptions = item.options && item.options.length > 1
+                    ? optionsHTML
+                    : `<div class="option-price-group"><span class="price">${escapeHTML(firstOpt.price)} ريال</span>${availabilityBadge}</div>`;
 
                 return `
                     <div class="menu-card">
@@ -1045,13 +1055,13 @@
                             <div class="quantity-control">
                                 <span style="font-size: 0.85rem; color: var(--text-muted);">الكمية:</span>
                                 <div style="display: flex; align-items: center; gap: 5px;">
-                                    <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
+                                    <button class="qty-btn" onclick="changeQty('${item.id}', -1)" ${isAvailable ? '' : 'disabled'}>-</button>
                                     <input type="text" id="qty-${item.id}" class="qty-input" value="1" readonly>
-                                    <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
+                                    <button class="qty-btn" onclick="changeQty('${item.id}', 1)" ${isAvailable ? '' : 'disabled'}>+</button>
                                 </div>
                             </div>
-                            <button class="add-to-cart-btn" onclick="addToCart('${item.id}')">
-                                <i class="fas fa-cart-plus"></i> أضف للسلة
+                            <button class="add-to-cart-btn" onclick="addToCart('${item.id}')" ${isAvailable ? '' : 'disabled'}>
+                                <i class="fas fa-cart-plus"></i> ${isAvailable ? 'أضف للسلة' : 'غير متوفر حالياً'}
                             </button>
                         </div>
                     </div>
@@ -1077,7 +1087,7 @@
 
         function addToCart(itemId) {
             const item = menuData.find(i => String(i.id) === String(itemId));
-            if (!item) return;
+            if (!item || item.is_available === false) return;
             const radios = document.getElementsByName(`item-${itemId}`);
             let selectedIndex = 0;
             if (item.options && item.options.length > 1) {
@@ -1231,7 +1241,6 @@
                 const adminWrapper = document.getElementById('admin-wrapper');
                 if (customerView) customerView.style.display = 'none';
                 if (adminWrapper) adminWrapper.style.display = 'block';
-                updateAdminPanel();
                 renderMenuManager();
             } else {
                 const customerView = document.getElementById('customer-view');
@@ -1634,7 +1643,6 @@
             const nameEl = document.getElementById('new-item-name');
             const typeSelect = document.getElementById('new-item-type');
             const modeSelect = document.getElementById('new-item-option-mode');
-            const branchSelect = document.getElementById('new-item-branch');
             const priceEl = document.getElementById('new-item-price');
             const cheesePriceEl = document.getElementById('new-item-cheese-price');
             const calEl = document.getElementById('new-item-cal');
