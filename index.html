@@ -241,6 +241,8 @@
         .category-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .category-admin-label { min-width: 0; overflow-wrap: anywhere; }
         .category-admin-label i { color: var(--accent); margin-left: 7px; }
+        .category-admin-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+        .category-order-btn { background: var(--bg-dark); border: 1px solid rgba(200,179,232,0.25); }
         .management-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
         .management-card { min-width: 0; padding: 18px; border: 1px solid rgba(200,179,232,0.22); border-radius: 14px; background: var(--bg-card); }
         .management-card h3 { margin-bottom: 14px; color: var(--accent); }
@@ -664,6 +666,7 @@
                         </section>
                         <section class="management-card" aria-labelledby="category-list-title">
                             <h3 id="category-list-title">الأقسام الحالية</h3>
+                            <p id="categories-database-status" class="offer-database-status" role="alert" hidden></p>
                             <div id="categories-management-list" class="category-admin-list"></div>
                         </section>
                     </div>
@@ -805,9 +808,13 @@
         ];
 
         const defaultCategories = [
-            { id: 'food', name: 'المأكولات والوجبات', icon: 'fa-utensils', kind: 'food' },
-            { id: 'drink', name: 'المشروبات', icon: 'fa-mug-hot', kind: 'drink' }
+            { id: '1', name: 'المأكولات', icon: 'fa-utensils', kind: 'food' },
+            { id: '2', name: 'المقبلات والبطاطس', icon: 'fa-bowl-food', kind: 'food' },
+            { id: '3', name: 'المشروبات', icon: 'fa-mug-hot', kind: 'drink' }
         ];
+        const categoryOrderStorageKey = 'shawarmat_category_order';
+        let categoriesData = defaultCategories.map(category => ({ ...category, sort_order: Number(category.id) }));
+        let categoriesLoadedFromDatabase = false;
         const categoryIcons = ['fa-utensils', 'fa-mug-hot', 'fa-ice-cream', 'fa-burger', 'fa-cookie-bite', 'fa-bowl-food', 'fa-star'];
         let currentBranch = "حلي";
         let menuData = [];
@@ -819,14 +826,28 @@
         let promotionBranches = [];
 
         function getCategories() {
-            const savedCategories = localStorage.getItem('shawarmat_categories');
-            return savedCategories ? JSON.parse(savedCategories) : defaultCategories.map(category => ({ ...category }));
+            return categoriesData;
         }
 
         function getCategoryForItem(item, categories = getCategories()) {
-            return categories.find(category => category.id === item.categoryId)
+            return categories.find(category => String(category.id) === String(item.categoryId))
                 || categories.find(category => category.id === item.type)
                 || categories[0];
+        }
+
+        function normalizeCategoryName(name) {
+            return String(name ?? '')
+                .normalize('NFC')
+                .replace(/[\u0640\u064B-\u065F\u0670]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLocaleLowerCase();
+        }
+
+        function getDatabaseCategoryId(categoryId) {
+            const legacyIds = { food: 1, drink: 3 };
+            const normalizedId = legacyIds[categoryId] || Number(categoryId);
+            return Number.isSafeInteger(normalizedId) && normalizedId > 0 ? normalizedId : null;
         }
 
         function renderCategoryOptions() {
@@ -838,8 +859,138 @@
                 select.innerHTML = categories.map(category =>
                     `<option value="${escapeHTML(category.id)}">${escapeHTML(category.name)}</option>`
                 ).join('');
-                if (categories.some(category => category.id === previousValue)) select.value = previousValue;
+                if (categories.some(category => String(category.id) === String(previousValue))) select.value = previousValue;
             });
+        }
+
+        function getCategoryIcon(category) {
+            if (categoryIcons.includes(category.icon)) return category.icon;
+            const name = String(category.name || '');
+            if (/مشروب|عصير|قهوة|شاي/.test(name)) return 'fa-mug-hot';
+            if (/بطاطس|مقبلات|أطباق/.test(name)) return 'fa-bowl-food';
+            if (/حلويات|حلو/.test(name)) return 'fa-ice-cream';
+            return 'fa-utensils';
+        }
+
+        function getCategoryKind(categoryId) {
+            const category = getCategories().find(item => String(item.id) === String(categoryId));
+            if (category?.kind) return category.kind;
+            return category && /مشروب|عصير|قهوة|شاي/.test(category.name) ? 'drink' : 'food';
+        }
+
+        function applySavedCategoryOrder(categories) {
+            let savedOrder = [];
+            try {
+                const parsedOrder = JSON.parse(localStorage.getItem(categoryOrderStorageKey) || '[]');
+                if (Array.isArray(parsedOrder)) savedOrder = parsedOrder;
+            } catch (error) {
+                console.error('تعذر قراءة ترتيب الأقسام المحفوظ:', error);
+            }
+            const positions = new Map(savedOrder.map((id, index) => [String(id), index]));
+            return categories.sort((left, right) =>
+                (positions.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER)
+                - (positions.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER)
+                || Number(left.id) - Number(right.id)
+            );
+        }
+
+        function saveCategoryOrder(categories) {
+            try {
+                localStorage.setItem(categoryOrderStorageKey, JSON.stringify(categories.map(category => String(category.id))));
+                return true;
+            } catch (error) {
+                console.error('تعذر حفظ ترتيب الأقسام محلياً:', error);
+                alert('تعذر حفظ ترتيب الأقسام على هذا الجهاز.');
+                return false;
+            }
+        }
+
+        async function importLegacyCategories(databaseCategories) {
+            const savedCategories = localStorage.getItem('shawarmat_categories');
+            if (!savedCategories) return databaseCategories;
+
+            const legacyCategories = JSON.parse(savedCategories);
+            if (!Array.isArray(legacyCategories)) return databaseCategories;
+
+            const existingNames = new Set(databaseCategories.map(category => category.name.trim().toLocaleLowerCase()));
+            const categoriesToImport = [];
+            legacyCategories.forEach(category => {
+                if (!category || ['food', 'drink'].includes(String(category.id)) || typeof category.name !== 'string') return;
+                const name = category.name.trim();
+                const normalizedName = name.toLocaleLowerCase();
+                if (!name || existingNames.has(normalizedName)) return;
+                existingNames.add(normalizedName);
+                categoriesToImport.push({
+                    name,
+                    image_url: null
+                });
+            });
+
+            if (!categoriesToImport.length) {
+                localStorage.removeItem('shawarmat_categories');
+                return databaseCategories;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('categories')
+                .insert(categoriesToImport)
+                .select('id, name, image_url');
+            if (error) {
+                console.error('تعذر نقل الأقسام المحفوظة محلياً إلى Supabase:', error);
+                const status = document.getElementById('categories-database-status');
+                if (status) {
+                    status.textContent = `تعذر نقل الأقسام القديمة إلى قاعدة البيانات: ${error.message}`;
+                    status.hidden = false;
+                }
+                return databaseCategories;
+            }
+
+            localStorage.removeItem('shawarmat_categories');
+            return [...databaseCategories, ...(data || [])];
+        }
+
+        async function loadCategoriesFromSupabase() {
+            const status = document.getElementById('categories-database-status');
+            if (!supabaseClient) {
+                if (status) {
+                    status.textContent = 'تعذر الاتصال بقاعدة البيانات لتحميل الأقسام.';
+                    status.hidden = false;
+                }
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('categories')
+                .select('id, name, image_url')
+                .order('id', { ascending: true });
+
+            if (error) {
+                categoriesLoadedFromDatabase = false;
+                console.error('تعذر جلب الأقسام من Supabase:', error);
+                if (status) {
+                    status.textContent = `تعذر تحميل الأقسام من قاعدة البيانات: ${error.message}`;
+                    status.hidden = false;
+                }
+                return;
+            }
+
+            if (status) status.hidden = true;
+            const synchronizedCategories = await importLegacyCategories(data || []);
+            categoriesData = synchronizedCategories.length
+                ? applySavedCategoryOrder(synchronizedCategories.map(category => ({
+                    ...category,
+                    id: String(category.id),
+                    kind: getCategoryKindForName(category.name),
+                    icon: getCategoryIcon(category)
+                })))
+                : defaultCategories.map(category => ({ ...category, sort_order: Number(category.id) }));
+            saveCategoryOrder(categoriesData);
+            categoriesLoadedFromDatabase = true;
+
+            renderCategoryOptions();
+            renderCategoryManager();
+            renderMenu();
+            renderMenuManager();
         }
 
         function getLocalDateString(date = new Date()) {
@@ -887,8 +1038,8 @@
                     return {
                         id: p.id,
                         name: p.name,
-                        categoryId: p.category_id || 'food',
-                        type: p.category_id === 'drink' || p.category_id === 3 ? 'drink' : 'food',
+                        categoryId: String(p.category_id || '1'),
+                        type: getCategoryKind(String(p.category_id || '1')),
                         branch: p.branch || 'all',
                         img: p.image_url || 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=500&q=80',
                         options: parsedOptions,
@@ -1280,8 +1431,12 @@
         }
 
         function getCategoryKind(categoryId) {
-            const category = getCategories().find(item => item.id === categoryId);
-            return category?.kind || category?.id || 'food';
+            const category = getCategories().find(item => String(item.id) === String(categoryId));
+            return category?.kind || getCategoryKindForName(category?.name || '');
+        }
+
+        function getCategoryKindForName(name) {
+            return /مشروب|عصير|قهوة|شاي/.test(String(name)) ? 'drink' : 'food';
         }
 
         function updateItemOptionFields() {
@@ -1354,14 +1509,26 @@
         }
 
         function renderCategoryManager() {
-            const categories = getCategories();
             const listEl = document.getElementById('categories-management-list');
             if (!listEl) return;
-            listEl.innerHTML = categories.map(category => `
+            if (!categoriesLoadedFromDatabase) {
+                listEl.replaceChildren();
+                return;
+            }
+            const categories = getCategories();
+            listEl.innerHTML = categories.map((category, index) => `
                 <div class="category-admin-row">
                     <span class="category-admin-label"><i class="fas ${escapeHTML(category.icon)}"></i>${escapeHTML(category.name)}</span>
-                    <button class="item-action-btn item-delete-btn" type="button" data-delete-category="${escapeHTML(category.id)}"
-                        aria-label="حذف قسم ${escapeHTML(category.name)}"><i class="fas fa-trash"></i> حذف</button>
+                    <div class="category-admin-actions">
+                        <button class="item-action-btn category-order-btn" type="button" data-category-action="move-up" data-category-id="${escapeHTML(category.id)}"
+                            aria-label="رفع ${escapeHTML(category.name)}" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                        <button class="item-action-btn category-order-btn" type="button" data-category-action="move-down" data-category-id="${escapeHTML(category.id)}"
+                            aria-label="خفض ${escapeHTML(category.name)}" ${index === categories.length - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                        <button class="item-action-btn item-edit-btn" type="button" data-category-action="edit" data-category-id="${escapeHTML(category.id)}"
+                            aria-label="تعديل قسم ${escapeHTML(category.name)}"><i class="fas fa-pen"></i> تعديل</button>
+                        <button class="item-action-btn item-delete-btn" type="button" data-category-action="delete" data-category-id="${escapeHTML(category.id)}"
+                            aria-label="حذف قسم ${escapeHTML(category.name)}"><i class="fas fa-trash"></i> حذف</button>
+                    </div>
                 </div>
             `).join('');
         }
@@ -1375,51 +1542,150 @@
             updateEditOptionFields();
         }
 
-        function addCategory(event) {
+        async function addCategory(event) {
             event.preventDefault();
+            if (!supabaseClient) { alert('تعذر الاتصال بقاعدة البيانات.'); return; }
+            if (!categoriesLoadedFromDatabase) { alert('لم يتم تحميل الأقسام من قاعدة البيانات. نفّذ تحديث جدول الأقسام ثم أعد تحميل الصفحة.'); return; }
             const nameInput = document.getElementById('new-category-name');
             if (!nameInput) return;
             const name = nameInput.value.trim();
             const categories = getCategories();
             if (!name) return;
-            if (categories.some(category => category.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+
+            const { data: existingCategories, error: categoriesError } = await supabaseClient
+                .from('categories')
+                .select('id, name');
+            if (categoriesError) {
+                alert(`تعذر التحقق من اسم القسم في قاعدة البيانات: ${categoriesError.message}`);
+                return;
+            }
+            if ((existingCategories || []).some(category =>
+                normalizeCategoryName(category.name) === normalizeCategoryName(name)
+            )) {
                 alert('يوجد قسم بهذا الاسم بالفعل.');
                 return;
             }
             const iconSelect = document.getElementById('new-category-icon');
             const kindSelect = document.getElementById('new-category-kind');
-            categories.push({
-                id: `category-${Date.now()}`,
+            const category = {
                 name,
-                icon: iconSelect && categoryIcons.includes(iconSelect.value) ? iconSelect.value : 'fa-star',
-                kind: kindSelect && kindSelect.value === 'drink' ? 'drink' : 'food'
-            });
-            try {
-                localStorage.setItem('shawarmat_categories', JSON.stringify(categories));
-                event.currentTarget.reset();
-                refreshCategoryViews();
-            } catch (error) {
-                alert('تعذر حفظ القسم.');
+                image_url: null
+            };
+            const { data, error } = await supabaseClient
+                .from('categories')
+                .insert(category)
+                .select('id, name, image_url')
+                .single();
+
+            if (error) {
+                alert(`تعذر حفظ القسم في قاعدة البيانات: ${error.message}`);
+                return;
             }
+
+            categoriesData.push({
+                ...data,
+                id: String(data.id),
+                kind: kindSelect && kindSelect.value === 'drink' ? 'drink' : 'food',
+                icon: iconSelect && categoryIcons.includes(iconSelect.value) ? iconSelect.value : 'fa-star'
+            });
+            saveCategoryOrder(categoriesData);
+            event.currentTarget.reset();
+            refreshCategoryViews();
         }
 
-        function deleteCategory(categoryId) {
+        async function editCategory(categoryId) {
+            if (!supabaseClient) { alert('تعذر الاتصال بقاعدة البيانات.'); return; }
+            if (!categoriesLoadedFromDatabase) { alert('لم يتم تحميل الأقسام من قاعدة البيانات.'); return; }
+            const category = getCategories().find(item => String(item.id) === String(categoryId));
+            if (!category) return;
+            const name = prompt('اكتب الاسم الجديد للقسم:', category.name)?.trim();
+            if (!name || name === category.name) return;
+            if (getCategories().some(item => item.id !== category.id && item.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+                alert('يوجد قسم بهذا الاسم بالفعل.');
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('categories')
+                .update({ name })
+                .eq('id', categoryId)
+                .select('id')
+                .maybeSingle();
+            if (error) {
+                alert(`تعذر تعديل القسم: ${error.message}`);
+                return;
+            }
+            if (!data) {
+                alert('لم يتم تعديل القسم. تحقق من صلاحيات التعديل في Supabase.');
+                return;
+            }
+            await loadCategoriesFromSupabase();
+        }
+
+        async function moveCategory(categoryId, direction) {
+            if (!categoriesLoadedFromDatabase) { alert('لم يتم تحميل الأقسام من قاعدة البيانات.'); return; }
+            const categories = [...getCategories()];
+            const index = categories.findIndex(category => String(category.id) === String(categoryId));
+            const nextIndex = index + direction;
+            if (index < 0 || nextIndex < 0 || nextIndex >= categories.length) return;
+            [categories[index], categories[nextIndex]] = [categories[nextIndex], categories[index]];
+            if (!saveCategoryOrder(categories)) return;
+            categoriesData = categories;
+            refreshCategoryViews();
+        }
+
+        async function deleteCategory(categoryId) {
+            if (!supabaseClient) { alert('تعذر الاتصال بقاعدة البيانات.'); return; }
+            if (!categoriesLoadedFromDatabase) { alert('لم يتم تحميل الأقسام من قاعدة البيانات.'); return; }
             const categories = getCategories();
             if (categories.length <= 1) { alert('يجب الإبقاء على قسم واحد على الأقل.'); return; }
-            const category = categories.find(item => item.id === categoryId);
+            const category = categories.find(item => String(item.id) === String(categoryId));
             if (!category) return;
-            const remainingCategories = categories.filter(item => item.id !== categoryId);
+            const remainingCategories = categories.filter(item => String(item.id) !== String(categoryId));
             const targetCategory = remainingCategories.find(item => item.kind === category.kind) || remainingCategories[0];
-            const affectedItems = menuData.filter(item => getCategoryForItem(item, categories)?.id === categoryId);
+            const affectedItems = menuData.filter(item => String(getCategoryForItem(item, categories)?.id) === String(categoryId));
             const message = affectedItems.length ? `سيتم نقل ${affectedItems.length} صنف إلى قسم "${targetCategory.name}" قبل حذف "${category.name}". هل تريد المتابعة؟` : `هل تريد حذف القسم "${category.name}"؟`;
             if (!confirm(message)) return;
-            affectedItems.forEach(item => { item.categoryId = targetCategory.id; item.type = targetCategory.kind; });
-            try {
-                localStorage.setItem('shawarmat_categories', JSON.stringify(remainingCategories));
-                refreshCategoryViews();
-            } catch (error) {
-                alert('تعذر حذف القسم.');
+
+            const { data: productsToMove, error: productsQueryError } = await supabaseClient
+                .from('products')
+                .select('id')
+                .eq('category_id', Number(category.id));
+            if (productsQueryError) {
+                alert(`تعذر التحقق من أصناف القسم: ${productsQueryError.message}`);
+                return;
             }
+
+            const { data: movedProducts, error: moveError } = await supabaseClient
+                .from('products')
+                .update({ category_id: Number(targetCategory.id) })
+                .eq('category_id', Number(category.id))
+                .select('id');
+            if (moveError) {
+                alert(`تعذر نقل أصناف القسم: ${moveError.message}`);
+                return;
+            }
+            if ((movedProducts || []).length !== (productsToMove || []).length) {
+                alert('لم يتم نقل جميع الأصناف؛ تحقق من صلاحيات التعديل على جدول المنتجات.');
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('categories')
+                .delete()
+                .eq('id', category.id)
+                .select('id')
+                .maybeSingle();
+            if (error) {
+                alert(`تعذر حذف القسم: ${error.message}`);
+                return;
+            }
+            if (!data) {
+                alert('لم يتم حذف القسم. تحقق من صلاحيات الحذف في Supabase.');
+                return;
+            }
+            await loadCategoriesFromSupabase();
+            await loadMenuFromSupabase();
         }
 
         function renderOffersManager() {
@@ -1565,6 +1831,7 @@
             const itemId = document.getElementById('edit-item-id').value;
             const name = document.getElementById('edit-item-name').value.trim();
             const categoryId = document.getElementById('edit-item-type').value;
+            const databaseCategoryId = getDatabaseCategoryId(categoryId);
             const modeSelect = document.getElementById('edit-item-option-mode');
             const isFood = getCategoryKind(categoryId) === 'food';
             const hasCheeseOptions = isFood && modeSelect && modeSelect.value === 'cheese';
@@ -1576,6 +1843,10 @@
 
             const item = menuData.find(menuItem => String(menuItem.id) === String(itemId));
             if (!item) return;
+            if (databaseCategoryId === null) {
+                alert('القسم المحدد غير مرتبط بقسم في قاعدة البيانات. اختر أحد الأقسام الأساسية ثم حاول مرة أخرى.');
+                return;
+            }
 
             let imageUrl = item.img;
             if (imageFile) {
@@ -1594,7 +1865,7 @@
             const { error } = await supabaseClient
                 .from('products')
                 .update({
-                    category_id: isNaN(categoryId) ? null : parseInt(categoryId),
+                    category_id: databaseCategoryId,
                     name: name,
                     description: JSON.stringify(optionsArr),
                     base_price: price,
@@ -1653,6 +1924,7 @@
 
             const name = nameEl ? nameEl.value.trim() : '';
             const categoryId = typeSelect ? typeSelect.value : 'food';
+            const databaseCategoryId = getDatabaseCategoryId(categoryId);
             const isFood = getCategoryKind(categoryId) === 'food';
             const hasCheeseOptions = isFood && modeSelect && modeSelect.value === 'cheese';
             const price = priceEl ? parseFloat(priceEl.value) : NaN;
@@ -1662,6 +1934,7 @@
             const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
 
             if (!name || !Number.isFinite(price) || price <= 0) { alert('يرجى إدخال اسم الصنف وسعر صحيح.'); return; }
+            if (databaseCategoryId === null) { alert('القسم المحدد غير مرتبط بقسم في قاعدة البيانات.'); return; }
             if (hasCheeseOptions && (!Number.isFinite(cheesePrice) || cheesePrice <= 0)) { alert('يرجى إدخال سعر صحيح للصنف بالجبنة.'); return; }
             if (!imageFile) { alert('يرجى اختيار صورة للصنف.'); return; }
 
@@ -1679,7 +1952,7 @@
                 .from('products')
                 .insert([
                     {
-                        category_id: isNaN(categoryId) ? null : parseInt(categoryId),
+                        category_id: databaseCategoryId,
                         name: name,
                         description: JSON.stringify(optionsArr),
                         base_price: price,
@@ -1704,14 +1977,15 @@
             }
         }
 
-        window.onload = function() {
+        window.onload = async function() {
+            await loadCategoriesFromSupabase();
             renderCategoryOptions();
             updateItemOptionFields();
             checkRoute();
             renderCategoryManager();
             renderOfferBranchOptions();
             
-            loadMenuFromSupabase();
+            await loadMenuFromSupabase();
             loadPromotions();
 
             const categoryNav = document.getElementById('customer-category-nav');
@@ -1728,8 +2002,13 @@
             const catList = document.getElementById('categories-management-list');
             if (catList) {
                 catList.addEventListener('click', event => {
-                    const button = event.target.closest('button[data-delete-category]');
-                    if (button) deleteCategory(button.dataset.deleteCategory);
+                    const button = event.target.closest('button[data-category-action]');
+                    if (!button) return;
+                    const { categoryAction, categoryId } = button.dataset;
+                    if (categoryAction === 'move-up') moveCategory(categoryId, -1);
+                    if (categoryAction === 'move-down') moveCategory(categoryId, 1);
+                    if (categoryAction === 'edit') editCategory(categoryId);
+                    if (categoryAction === 'delete') deleteCategory(categoryId);
                 });
             }
 
